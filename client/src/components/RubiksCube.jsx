@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import "cubing/twisty";
 import generateScramble from "../utils/scramble";
 
@@ -7,6 +7,7 @@ const MOVES = ["U", "U'", "U2", "D", "D'", "D2", "R", "R'", "R2", "L", "L'", "L2
 export default function RubiksCube() {
     const [scrambleText, setScrambleText] = useState("");
     const [inputValue, setInputValue] = useState("");
+    const [lastMove, setLastMove] = useState("");
     const playerRef = useRef(null);
     const timeoutsRef = useRef([]);
 
@@ -62,8 +63,71 @@ export default function RubiksCube() {
         player.experimentalAddMove(notation);
     }, []);
 
+    useEffect(() => {
+        const keyMap = {
+            u: "U",
+            d: "D",
+            r: "R",
+            l: "L",
+            f: "F",
+            b: "B",
+        };
+
+        const handleKeyDown = (e) => {
+            const key = e.key.toLowerCase();
+
+            if (!keyMap[key]) return;
+
+            // prevent typing in input field
+            const active = document.activeElement;
+            if (active && active.tagName === "INPUT") return;
+
+            const baseMove = keyMap[key];
+
+            let move = baseMove;
+
+            if (e.altKey) {
+                move = baseMove + "2";   // Alt = double turn
+            } else if (e.shiftKey) {
+                move = baseMove + "'";   // Shift = inverse
+            }
+
+            setLastMove(move);
+
+            // clear after 500ms
+            setTimeout(() => setLastMove(""), 500);
+
+            doMove(move);
+        };
+
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [doMove]);
+
     return (
         <div className="flex flex-col items-center gap-4 w-full max-w-2xl mx-auto p-4 select-none">
+
+            <div className="w-full flex justify-end">
+                <div className="group relative">
+                    <button className="text-xs text-zinc-400 hover:text-white transition">
+                        Controls ⓘ
+                    </button>
+
+                    <div className="absolute right-0 mt-2 w-64 p-3 z-50 rounded-xl bg-zinc-900 border border-zinc-700 text-xs text-zinc-300 opacity-0 group-hover:opacity-100 transition pointer-events-none">
+                        <p className="font-semibold mb-2 text-zinc-200">Keyboard Controls</p>
+
+                        <ul className="space-y-1 font-mono">
+                            <li>U D R L F B → moves</li>
+                            <li>Shift + key → inverse (')</li>
+                            <li>Alt + key → double (2)</li>
+                        </ul>
+
+                        <p className="mt-2 text-zinc-500">
+                            Example: Shift + R → R'
+                        </p>
+                    </div>
+                </div>
+            </div>
 
             {/* cube viewer */}
             <twisty-player
@@ -74,6 +138,14 @@ export default function RubiksCube() {
                 control-panel="none"
                 style={{ width: "100%", height: 420, borderRadius: "1rem", overflow: "hidden" }}
             />
+
+            {lastMove && (
+                <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50">
+                    <div className="px-4 py-2 rounded-xl bg-black/80 border border-zinc-700 text-white text-lg font-mono shadow-lg animate-pulse">
+                        {lastMove}
+                    </div>
+                </div>
+            )}
 
             {/* scramble display */}
             {scrambleText && (

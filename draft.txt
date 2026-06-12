@@ -1,0 +1,5 @@
+features i am thinking to add:
+
+- map the movements to use keyboard keys
+- add full functional cube timer.. (localstorage first)
+- add a badges/achivement system
