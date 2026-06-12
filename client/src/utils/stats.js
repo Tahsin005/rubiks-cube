@@ -10,7 +10,7 @@ export function average(times) {
 export function computeStats(solves) {
   if (!solves || solves.length === 0) return null;
 
-  const times = solves.map((s) => s.time);
+  const times = solves.map((s) => s.time === -1 ? Infinity : s.time);
   const n = times.length;
 
   const ao = (count) => {
@@ -51,6 +51,7 @@ export function computeStats(solves) {
 
 export function formatTime(ms) {
   if (ms == null) return "-";
+  if (ms === Infinity || ms === -1) return "DNF";
   const totalSeconds = ms / 1000;
   if (totalSeconds < 60) return totalSeconds.toFixed(2);
   const m = Math.floor(totalSeconds / 60);

@@ -10,11 +10,13 @@ const HOLD_DURATION = 1500; // ms to hold spacebar
 
 // Timer states
 const STATE = {
-  IDLE: "idle",         // waiting for spacebar hold
-  HOLDING: "holding",   // spacebar held, counting down
-  READY: "ready",       // held long enough, release to start
-  RUNNING: "running",   // timer running
-  DONE: "done",         // timer stopped, showing result
+  IDLE: "idle",                   // waiting for spacebar to start inspection
+  INSPECTING: "inspecting",       // 15s inspection countdown
+  HOLDING: "holding",             // spacebar held during inspection, counting down
+  READY: "ready",                 // held long enough, release to start solve
+  RUNNING: "running",             // solve timer running
+  JUST_STOPPED: "just_stopped",   // solve just stopped, waiting for keyup
+  DONE: "done",                   // solve finished, showing result
 };
 
 export default function Timer() {
@@ -22,14 +24,22 @@ export default function Timer() {
   const [scramble, setScramble] = useState("");
   const [timerState, setTimerState] = useState(STATE.IDLE);
   const [displayTime, setDisplayTime] = useState(0);
+  const [inspectionDisplay, setInspectionDisplay] = useState("15");
   const [solves, setSolves] = useState(() => getSolves());
   const [lastSolve, setLastSolve] = useState(null);
 
   const playerRef = useRef(null);
   const startTimeRef = useRef(null);
   const rafRef = useRef(null);
+  const inspectionRafRef = useRef(null);
+  
   const holdTimerRef = useRef(null);
   const holdStartRef = useRef(null);
+  const inspectionStartRef = useRef(null);
+  const penaltyRef = useRef(0);
+  const solveEndTimeRef = useRef(0);
+  const isSpaceDownRef = useRef(false);
+
   const stateRef = useRef(STATE.IDLE);
   const scrambleRef = useRef("");
 
@@ -52,21 +62,79 @@ export default function Timer() {
 
   // generate scramble on mount
   useEffect(() => {
-    // slight delay to let twisty-player mount
     const id = setTimeout(newScramble, 300);
     return () => clearTimeout(id);
   }, [newScramble]);
 
-  // set scramble on player when ref becomes available
   useEffect(() => {
     if (!playerRef.current || !scramble) return;
     playerRef.current.alg = scramble;
     playerRef.current.timestamp = "end";
   }, [scramble]);
 
-  // timer tick
+  const finishSolve = useCallback((elapsed, forcePenalty) => {
+    let finalTime = Math.round(elapsed);
+    if (forcePenalty === "DNF" || penaltyRef.current === Infinity) {
+      finalTime = -1;
+    } else if (forcePenalty === "+2" || penaltyRef.current === 2000) {
+      finalTime += 2000;
+    }
+
+    const solve = {
+      id: Date.now(),
+      time: finalTime,
+      penalty: forcePenalty || (penaltyRef.current === 2000 ? "+2" : null),
+      scramble: scrambleRef.current,
+      date: new Date().toISOString(),
+    };
+    
+    const updated = saveSolve(solve);
+    setSolves(updated);
+    setLastSolve(solve);
+    setDisplayTime(finalTime);
+    
+    // Generate new scramble immediately so user can prepare for next solve
+    newScramble();
+  }, [newScramble]);
+
+  const startInspection = useCallback(() => {
+    updateState(STATE.INSPECTING);
+    inspectionStartRef.current = performance.now();
+    penaltyRef.current = 0;
+    setInspectionDisplay("15");
+    
+    const tick = () => {
+      const state = stateRef.current;
+      if (state !== STATE.INSPECTING && state !== STATE.HOLDING && state !== STATE.READY) {
+        return; // stop inspection loop
+      }
+
+      const elapsed = performance.now() - inspectionStartRef.current;
+      
+      if (elapsed >= 17000) {
+        finishSolve(Infinity, "DNF");
+        if (isSpaceDownRef.current) {
+          updateState(STATE.JUST_STOPPED);
+        } else {
+          updateState(STATE.DONE);
+        }
+        return;
+      }
+
+      if (elapsed >= 15000) {
+        setInspectionDisplay("+2");
+      } else {
+        setInspectionDisplay(Math.ceil((15000 - elapsed) / 1000).toString());
+      }
+
+      inspectionRafRef.current = requestAnimationFrame(tick);
+    };
+    inspectionRafRef.current = requestAnimationFrame(tick);
+  }, [finishSolve]);
+
   const startTicking = useCallback(() => {
     startTimeRef.current = performance.now();
+    
     const tick = () => {
       setDisplayTime(performance.now() - startTimeRef.current);
       rafRef.current = requestAnimationFrame(tick);
@@ -79,41 +147,27 @@ export default function Timer() {
     return performance.now() - startTimeRef.current;
   }, []);
 
-  const finishSolve = useCallback((elapsed) => {
-    const solve = {
-      id: Date.now(),
-      time: Math.round(elapsed),
-      scramble: scrambleRef.current,
-      date: new Date().toISOString(),
-    };
-    const updated = saveSolve(solve);
-    setSolves(updated);
-    setLastSolve(solve);
-    setDisplayTime(Math.round(elapsed));
-    newScramble();
-    updateState(STATE.DONE);
-  }, []);
-
   // spacebar logic
   useEffect(() => {
     const onKeyDown = (e) => {
       if (e.code !== "Space") return;
       e.preventDefault();
       if (e.repeat) return;
+      isSpaceDownRef.current = true;
 
       const state = stateRef.current;
 
       if (state === STATE.RUNNING) {
-        // stop timer
         const elapsed = stopTicking();
+        solveEndTimeRef.current = performance.now();
         finishSolve(elapsed);
+        updateState(STATE.JUST_STOPPED);
         return;
       }
 
-      if (state === STATE.IDLE || state === STATE.DONE) {
+      if (state === STATE.INSPECTING) {
         holdStartRef.current = performance.now();
         updateState(STATE.HOLDING);
-
         holdTimerRef.current = setTimeout(() => {
           updateState(STATE.READY);
         }, HOLD_DURATION);
@@ -123,17 +177,32 @@ export default function Timer() {
     const onKeyUp = (e) => {
       if (e.code !== "Space") return;
       e.preventDefault();
+      isSpaceDownRef.current = false;
 
       const state = stateRef.current;
 
-      if (state === STATE.HOLDING) {
+      if (state === STATE.IDLE) {
+        startInspection();
+      } else if (state === STATE.JUST_STOPPED) {
+        updateState(STATE.DONE);
+      } else if (state === STATE.DONE) {
+        setDisplayTime(0);
+        setLastSolve(null);
+        startInspection();
+      } else if (state === STATE.HOLDING) {
         clearTimeout(holdTimerRef.current);
-        updateState(STATE.IDLE);
-        return;
-      }
-
-      if (state === STATE.READY) {
+        updateState(STATE.INSPECTING);
+      } else if (state === STATE.READY) {
         clearTimeout(holdTimerRef.current);
+        
+        // Evaluate penalty right at start of solve
+        const inspectionElapsed = performance.now() - inspectionStartRef.current;
+        if (inspectionElapsed >= 15000) {
+          penaltyRef.current = 2000;
+        } else {
+          penaltyRef.current = 0;
+        }
+        
         updateState(STATE.RUNNING);
         startTicking();
       }
@@ -146,10 +215,10 @@ export default function Timer() {
       window.removeEventListener("keyup", onKeyUp);
       clearTimeout(holdTimerRef.current);
       cancelAnimationFrame(rafRef.current);
+      cancelAnimationFrame(inspectionRafRef.current);
     };
-  }, [startTicking, stopTicking, finishSolve]);
+  }, [startTicking, stopTicking, finishSolve, startInspection, newScramble]);
 
-  // after done, auto-generate new scramble when user is ready
   const handleNextScramble = useCallback(() => {
     newScramble();
     updateState(STATE.IDLE);
@@ -172,7 +241,7 @@ export default function Timer() {
   const timerColor =
     timerState === STATE.HOLDING ? "text-yellow-400"
       : timerState === STATE.READY ? "text-green-400"
-        : timerState === STATE.RUNNING ? "text-white"
+        : (timerState === STATE.RUNNING || timerState === STATE.INSPECTING) ? "text-white"
           : timerState === STATE.DONE ? "text-white"
             : "text-zinc-300";
 
@@ -181,6 +250,9 @@ export default function Timer() {
       ? timerState === STATE.READY ? 100
         : Math.min(100, ((performance.now() - (holdStartRef.current || 0)) / HOLD_DURATION) * 100)
       : 0;
+      
+  const showInspectionDisplay = 
+    timerState === STATE.INSPECTING || timerState === STATE.HOLDING || timerState === STATE.READY;
 
   return (
     <div className="w-full max-w-5xl mx-auto flex flex-col gap-4">
@@ -224,29 +296,27 @@ export default function Timer() {
               </div>
             )}
 
-            <div className={`font-mono text-7xl font-bold tracking-tighter transition-colors ${timerColor}`}>
-              {formatTime(displayTime)}
+            <div className={`flex flex-col items-center transition-colors ${timerColor}`}>
+              <div className="flex items-baseline font-mono text-7xl font-bold tracking-tighter">
+                {showInspectionDisplay ? inspectionDisplay : formatTime(displayTime)}
+              </div>
+              {(timerState === STATE.DONE || timerState === STATE.JUST_STOPPED) && lastSolve?.penalty === "+2" && (
+                <span className="text-sm text-red-400 font-medium mt-1">
+                  +2 Penalty Applied (Raw time: {formatTime(lastSolve.time - 2000)})
+                </span>
+              )}
             </div>
 
             {/* Status hint */}
             <p className="text-xs text-zinc-500 mt-1">
-              {timerState === STATE.IDLE && "Hold Space for 3s to arm"}
+              {(timerState === STATE.IDLE || timerState === STATE.DONE || timerState === STATE.JUST_STOPPED) && "Press Space to start 15s inspection"}
+              {timerState === STATE.INSPECTING && "Hold Space to arm timer"}
               {timerState === STATE.HOLDING && "Keep holding..."}
               {timerState === STATE.READY && "Release Space to start!"}
               {timerState === STATE.RUNNING && "Press Space to stop"}
-              {timerState === STATE.DONE && `Solved! Press Space or`}
             </p>
 
-            {timerState === STATE.DONE && (
-              <div className="flex gap-2 mt-1">
-                <button
-                  onClick={handleNextScramble}
-                  className="px-4 py-2 rounded-xl bg-white text-black text-sm font-semibold hover:bg-zinc-200 active:scale-95 transition-all"
-                >
-                  Next Scramble
-                </button>
-              </div>
-            )}
+
 
             {/* Quick stats row */}
             {stats && (
