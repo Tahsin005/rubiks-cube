@@ -2,7 +2,7 @@ import { pgTable, serial, text, integer } from "drizzle-orm/pg-core";
 
 export const eloTiers = pgTable("elo_tiers", {
     id:         serial("id").primaryKey(),
-    name:       text("name").notNull(),
+    name:       text("name").unique().notNull(),  // e.g. 'Bronze', 'Silver
     minElo:     integer("min_elo").notNull(),
     maxElo:     integer("max_elo").notNull(),
     badgeColor: text("badge_color"),

@@ -1,7 +1,10 @@
-import { db } from "../../config/db.js";
-import { sql } from "drizzle-orm";
+import { healthRepository } from "./health.repository.js";
 
-export const checkDbHealth = async () => {
-    await db.execute(sql`SELECT 1`);
-    return true;
-};
+class HealthService {
+    async checkDbHealth() {
+        await healthRepository.pingDb();
+        return true;
+    }
+}
+
+export const healthService = new HealthService();

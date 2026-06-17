@@ -5,5 +5,5 @@ export * from "./schema/matches.schema.js";
 export * from "./schema/solves.schema.js";
 export * from "./schema/friendships.schema.js";
 export * from "./schema/friendMessages.schema.js";
-export * from "./schema/matchInvites.schema.js";
+export * from "./schema/matchChallenges.schema.js";
 export * from "./schema/achievements.schema.js";

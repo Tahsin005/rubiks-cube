@@ -22,7 +22,8 @@ CREATE TABLE "elo_tiers" (
 	"min_elo" integer NOT NULL,
 	"max_elo" integer NOT NULL,
 	"badge_color" text,
-	"icon_url" text
+	"icon_url" text,
+	CONSTRAINT "elo_tiers_name_unique" UNIQUE("name")
 );
 --> statement-breakpoint
 CREATE TABLE "friend_messages" (
@@ -41,9 +42,18 @@ CREATE TABLE "friendships" (
 	"status" text DEFAULT 'pending' NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now(),
 	"updated_at" timestamp with time zone DEFAULT now(),
-	CONSTRAINT "friendships_requester_id_addressee_id_unique" UNIQUE("requester_id","addressee_id"),
 	CONSTRAINT "status_check" CHECK ("friendships"."status" IN ('pending', 'accepted', 'blocked')),
 	CONSTRAINT "no_self_friend" CHECK ("friendships"."requester_id" != "friendships"."addressee_id")
+);
+--> statement-breakpoint
+CREATE TABLE "match_challenges" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"sender_id" uuid NOT NULL,
+	"receiver_id" uuid NOT NULL,
+	"status" text DEFAULT 'pending',
+	"created_at" timestamp with time zone DEFAULT now(),
+	"expires_at" timestamp with time zone DEFAULT now() + INTERVAL '2 minutes',
+	CONSTRAINT "status_check" CHECK ("match_challenges"."status" IN ('pending', 'accepted', 'declined', 'expired'))
 );
 --> statement-breakpoint
 CREATE TABLE "match_results" (
@@ -52,7 +62,8 @@ CREATE TABLE "match_results" (
 	"user_id" uuid NOT NULL,
 	"solve_time_ms" integer,
 	"penalty" text,
-	"dnf" boolean DEFAULT false,
+	"elo_before" integer,
+	"elo_after" integer,
 	"finished_at" timestamp with time zone,
 	CONSTRAINT "match_results_match_id_user_id_unique" UNIQUE("match_id","user_id"),
 	CONSTRAINT "penalty_check" CHECK ("match_results"."penalty" IN ('+2', 'DNF'))
@@ -68,24 +79,8 @@ CREATE TABLE "matches" (
 	"winner_id" uuid,
 	"started_at" timestamp with time zone DEFAULT now(),
 	"finished_at" timestamp with time zone,
-	"player_a_elo_before" integer,
-	"player_b_elo_before" integer,
-	"player_a_elo_after" integer,
-	"player_b_elo_after" integer,
 	CONSTRAINT "match_type_check" CHECK ("matches"."match_type" IN ('ranked', 'friendly')),
 	CONSTRAINT "status_check" CHECK ("matches"."status" IN ('in_progress', 'finished', 'aborted'))
-);
---> statement-breakpoint
-CREATE TABLE "match_invites" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"sender_id" uuid NOT NULL,
-	"receiver_id" uuid NOT NULL,
-	"match_type" text DEFAULT 'friendly',
-	"status" text DEFAULT 'pending',
-	"created_at" timestamp with time zone DEFAULT now(),
-	"expires_at" timestamp with time zone DEFAULT now() + INTERVAL '2 minutes',
-	CONSTRAINT "match_type_check" CHECK ("match_invites"."match_type" IN ('ranked', 'friendly')),
-	CONSTRAINT "status_check" CHECK ("match_invites"."status" IN ('pending', 'accepted', 'declined', 'expired'))
 );
 --> statement-breakpoint
 CREATE TABLE "solves" (
@@ -120,8 +115,6 @@ CREATE TABLE "user_stats" (
 	"elo" integer DEFAULT 1000 NOT NULL,
 	"matches_played" integer DEFAULT 0,
 	"matches_won" integer DEFAULT 0,
-	"matches_lost" integer DEFAULT 0,
-	"matches_drawn" integer DEFAULT 0,
 	"pb_single_ms" integer,
 	"updated_at" timestamp with time zone DEFAULT now()
 );
@@ -132,17 +125,19 @@ ALTER TABLE "friend_messages" ADD CONSTRAINT "friend_messages_sender_id_users_id
 ALTER TABLE "friend_messages" ADD CONSTRAINT "friend_messages_receiver_id_users_id_fk" FOREIGN KEY ("receiver_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "friendships" ADD CONSTRAINT "friendships_requester_id_users_id_fk" FOREIGN KEY ("requester_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "friendships" ADD CONSTRAINT "friendships_addressee_id_users_id_fk" FOREIGN KEY ("addressee_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "match_challenges" ADD CONSTRAINT "match_challenges_sender_id_users_id_fk" FOREIGN KEY ("sender_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "match_challenges" ADD CONSTRAINT "match_challenges_receiver_id_users_id_fk" FOREIGN KEY ("receiver_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "match_results" ADD CONSTRAINT "match_results_match_id_matches_id_fk" FOREIGN KEY ("match_id") REFERENCES "public"."matches"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "match_results" ADD CONSTRAINT "match_results_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "matches" ADD CONSTRAINT "matches_player_a_id_users_id_fk" FOREIGN KEY ("player_a_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "matches" ADD CONSTRAINT "matches_player_b_id_users_id_fk" FOREIGN KEY ("player_b_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "matches" ADD CONSTRAINT "matches_winner_id_users_id_fk" FOREIGN KEY ("winner_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "match_invites" ADD CONSTRAINT "match_invites_sender_id_users_id_fk" FOREIGN KEY ("sender_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "match_invites" ADD CONSTRAINT "match_invites_receiver_id_users_id_fk" FOREIGN KEY ("receiver_id") REFERENCES "public"."users"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "solves" ADD CONSTRAINT "solves_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "solves" ADD CONSTRAINT "solves_match_id_matches_id_fk" FOREIGN KEY ("match_id") REFERENCES "public"."matches"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "user_stats" ADD CONSTRAINT "user_stats_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "idx_friend_messages_thread" ON "friend_messages" USING btree (LEAST("sender_id", "receiver_id"),GREATEST("sender_id", "receiver_id"),"sent_at" DESC NULLS LAST);--> statement-breakpoint
+CREATE UNIQUE INDEX "uq_friendship_pair" ON "friendships" USING btree (LEAST("requester_id", "addressee_id"),GREATEST("requester_id", "addressee_id"));--> statement-breakpoint
 CREATE INDEX "idx_friendships_addressee" ON "friendships" USING btree ("addressee_id","status");--> statement-breakpoint
 CREATE INDEX "idx_friendships_requester" ON "friendships" USING btree ("requester_id","status");--> statement-breakpoint
+CREATE INDEX "uq_pending_invite" ON "match_challenges" USING btree ("sender_id","receiver_id") WHERE "match_challenges"."status" = 'pending';--> statement-breakpoint
 CREATE INDEX "idx_solves_user" ON "solves" USING btree ("user_id","solved_at" DESC NULLS LAST);
