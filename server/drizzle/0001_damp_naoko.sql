@@ -1,0 +1,1 @@
+ALTER TABLE "elo_tiers" DROP COLUMN "icon_url";

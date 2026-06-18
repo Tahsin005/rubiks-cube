@@ -6,5 +6,4 @@ export const eloTiers = pgTable("elo_tiers", {
     minElo:     integer("min_elo").notNull(),
     maxElo:     integer("max_elo").notNull(),
     badgeColor: text("badge_color"),
-    iconUrl:    text("icon_url"),
 });

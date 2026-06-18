@@ -27,8 +27,30 @@ class UsersController {
             next(err);
         }
     }
+
+    async getProfile(req, res, next) {
+        try {
+            const { username } = req.params;
+            const requesterId = req.user ? req.user.id : null;
+
+            const profile = await usersRepository.getProfile(username, requesterId);
+
+            if (!profile) {
+                const err = new Error("User not found");
+                err.statusCode = 404;
+                throw err;
+            }
+
+            return successResponse(res, {
+                message: "Profile retrieved successfully",
+                data: profile,
+            });
+        } catch (err) {
+            next(err);
+        }
+    }
 }
 
 const usersController = new UsersController();
 
-export const { getRankings } = usersController;
+export const { getRankings, getProfile } = usersController;

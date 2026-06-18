@@ -1,6 +1,6 @@
 import { db } from "../../config/db.js";
-import { users, userStats, solves } from "../../db/index.js";
-import { eq, ilike, and, desc, sql, gte, lte } from "drizzle-orm";
+import { users, userStats, solves, eloTiers, friendships, matchResults } from "../../db/index.js";
+import { eq, ilike, and, desc, sql, gte, lte, or } from "drizzle-orm";
 
 class UsersRepository {
     async getRankings({ page = 1, limit = 10, search, minElo, minWinRate, maxPb }) {
@@ -69,6 +69,81 @@ class UsersRepository {
         const results = await query;
 
         return results;
+    }
+
+    async getProfile(targetUsername, requesterId) {
+        const targetUserRows = await db.select({
+            id: users.id,
+            username: users.username,
+            avatarUrl: users.avatarUrl,
+            countryCode: users.countryCode,
+            elo: userStats.elo,
+            matchesPlayed: userStats.matchesPlayed,
+            matchesWon: userStats.matchesWon,
+        })
+        .from(users)
+        .leftJoin(userStats, eq(users.id, userStats.userId))
+        .where(eq(users.username, targetUsername))
+        .limit(1);
+
+        const targetUser = targetUserRows[0];
+        if (!targetUser) return null;
+
+        const played = targetUser.matchesPlayed || 0;
+        const won = targetUser.matchesWon || 0;
+        const loss = Math.max(0, played - won);
+        const winPercentage = played > 0 ? Number(((won / played) * 100).toFixed(2)) : 0;
+
+        const currentElo = targetUser.elo || 1000;
+        const eloTiersRows = await db.select()
+            .from(eloTiers)
+            .where(and(lte(eloTiers.minElo, currentElo), gte(eloTiers.maxElo, currentElo)))
+            .limit(1);
+        const eloTier = eloTiersRows[0] || null;
+
+        const maxEloRows = await db.select({
+            maxElo: sql`MAX(${matchResults.eloAfter})`.mapWith(Number),
+        })
+        .from(matchResults)
+        .where(eq(matchResults.userId, targetUser.id));
+
+        const maxEloDb = maxEloRows[0]?.maxElo;
+        const maxElo = maxEloDb !== null && maxEloDb !== undefined && maxEloDb > currentElo ? maxEloDb : currentElo;
+
+        const isSelf = targetUser.id === requesterId;
+
+        let friendship = null;
+        if (!isSelf && requesterId) {
+            const fRows = await db.select()
+                .from(friendships)
+                .where(
+                    or(
+                        and(eq(friendships.requesterId, requesterId), eq(friendships.addresseeId, targetUser.id)),
+                        and(eq(friendships.requesterId, targetUser.id), eq(friendships.addresseeId, requesterId))
+                    )
+                )
+                .limit(1);
+            friendship = fRows[0] || null;
+        }
+
+        return {
+            username: targetUser.username,
+            avatarUrl: targetUser.avatarUrl,
+            countryCode: targetUser.countryCode,
+            is_self: isSelf,
+            elo: {
+                current: currentElo,
+                max: maxElo
+            },
+            eloTier: eloTier,
+            stats: {
+                totalMatchPlayed: played,
+                win: won,
+                loss: loss,
+                winPercentage: winPercentage
+            },
+            friendship: friendship
+        };
     }
 }
 
