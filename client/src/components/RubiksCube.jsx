@@ -5,7 +5,6 @@ import generateScramble from "../utils/scramble";
 const MOVES = ["U", "U'", "U2", "D", "D'", "D2", "R", "R'", "R2", "L", "L'", "L2", "F", "F'", "F2", "B", "B'", "B2"];
 
 export default function RubiksCube() {
-    const [scrambleText, setScrambleText] = useState("");
     const [inputValue, setInputValue] = useState("");
     const [lastMove, setLastMove] = useState("");
     const playerRef = useRef(null);
@@ -35,13 +34,11 @@ export default function RubiksCube() {
 
     const handleScramble = useCallback(() => {
         const s = generateScramble({ turns: 20, array: false });
-        setScrambleText(s);
         setInputValue(s);
     }, [applyAlg]);
 
     const handleApplyInput = useCallback(() => {
         if (!inputValue.trim()) return;
-        setScrambleText(inputValue.trim());
         applyAlg(inputValue.trim());
     }, [inputValue, applyAlg]);
 
@@ -52,7 +49,6 @@ export default function RubiksCube() {
         const player = playerRef.current;
         if (player) player.alg = "";
 
-        setScrambleText("");
         setInputValue("");
     }, []);
 
@@ -140,7 +136,7 @@ export default function RubiksCube() {
             />
 
             {lastMove && (
-                <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50">
+                <div className="fixed top-24 left-1/2 -translate-x-1/2 z-50">
                     <div className="px-4 py-2 rounded-xl bg-black/80 border border-zinc-700 text-white text-lg font-mono shadow-lg animate-pulse">
                         {lastMove}
                     </div>
@@ -148,12 +144,12 @@ export default function RubiksCube() {
             )}
 
             {/* scramble display */}
-            {scrambleText && (
+            {/* {scrambleText && (
                 <div className="w-full rounded-xl bg-zinc-900 border border-zinc-700 px-4 py-3">
                     <p className="text-xs text-zinc-500 mb-1 uppercase tracking-widest">Scramble</p>
                     <p className="font-mono text-sm text-zinc-100 leading-relaxed break-words">{scrambleText}</p>
                 </div>
-            )}
+            )} */}
 
             {/* manual scramble input */}
             <div className="flex w-full gap-2">
