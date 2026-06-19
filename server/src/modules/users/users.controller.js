@@ -117,8 +117,58 @@ class UsersController {
             next(err);
         }
     }
+    async getFriends(req, res, next) {
+        try {
+            const { page, limit, status } = req.query;
+
+            const friends = await usersRepository.getFriends(req.user.id, { page, limit, status });
+
+            return successResponse(res, {
+                message: "Friends retrieved successfully",
+                data: {
+                    friends,
+                    pagination: { page, limit },
+                },
+            });
+        } catch (err) {
+            next(err);
+        }
+    }
+
+    async sendFriendRequest(req, res, next) {
+        try {
+            const { username } = req.params;
+            const result = await usersRepository.sendFriendRequest(req.user.id, username);
+            if (result.error) {
+                return res.status(result.status).json({ success: false, message: result.error });
+            }
+            return successResponse(res, { message: "Friend request sent", data: result.data });
+        } catch (err) { next(err); }
+    }
+
+    async acceptFriendRequest(req, res, next) {
+        try {
+            const { username } = req.params;
+            const result = await usersRepository.acceptFriendRequest(req.user.id, username);
+            if (result.error) {
+                return res.status(result.status).json({ success: false, message: result.error });
+            }
+            return successResponse(res, { message: "Friend request accepted", data: result.data });
+        } catch (err) { next(err); }
+    }
+
+    async removeFriend(req, res, next) {
+        try {
+            const { username } = req.params;
+            const result = await usersRepository.removeFriend(req.user.id, username);
+            if (result.error) {
+                return res.status(result.status).json({ success: false, message: result.error });
+            }
+            return successResponse(res, { message: "Friend removed / request cancelled or rejected", data: null });
+        } catch (err) { next(err); }
+    }
 }
 
 const usersController = new UsersController();
 
-export const { getRankings, getProfile, updateProfile, getAchievements } = usersController;
+export const { getRankings, getProfile, updateProfile, getAchievements, getFriends, sendFriendRequest, acceptFriendRequest, removeFriend } = usersController;
