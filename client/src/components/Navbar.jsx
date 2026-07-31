@@ -2,7 +2,16 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../hooks/useAuth";
-import { Menu, X } from "lucide-react";
+import { Menu, X, User } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
 
 export default function Navbar() {
   const { isAuthenticated, user, logout } = useAuth();
@@ -52,20 +61,33 @@ export default function Navbar() {
 
         <div className="hidden md:flex px-2 items-center flex-shrink-0 ml-4">
           {isAuthenticated ? (
-            <div className="flex items-center gap-4">
-              <Link 
-                to="/profile"
-                className="text-sm font-medium text-zinc-300 hover:text-white px-2 py-1"
-              >
-                Profile
-              </Link>
-              <button 
-                onClick={() => { logout(); setIsOpen(false); }}
-                className="text-sm font-medium text-zinc-500 hover:text-zinc-300 px-2 py-1"
-              >
-                Logout
-              </button>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full overflow-hidden hover:opacity-80 transition ml-2">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={user?.avatarUrl} alt={user?.username} />
+                    <AvatarFallback className="bg-zinc-800 text-xs text-zinc-300 uppercase">
+                      {user?.username?.substring(0, 2) || <User size={14} />}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 bg-zinc-900 border-zinc-800 text-zinc-300 rounded-xl">
+                <DropdownMenuItem asChild className="hover:bg-zinc-800 cursor-pointer focus:text-white">
+                  <Link to={`/user/${user?.username}`} className="w-full flex items-center">
+                    <User className="mr-2 h-4 w-4" />
+                    <span>Profile</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-zinc-800" />
+                <DropdownMenuItem 
+                  onClick={() => { logout(); setIsOpen(false); }}
+                  className="text-red-400 focus:text-red-400 focus:bg-red-500/10 cursor-pointer"
+                >
+                  Logout
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : (
             <Link 
               to="/auth"
@@ -114,7 +136,7 @@ export default function Navbar() {
             {isAuthenticated ? (
               <div className="flex flex-col gap-1">
                 <Link 
-                  to="/profile"
+                  to={`/user/${user?.username}`}
                   onClick={() => setIsOpen(false)}
                   className="w-full text-left px-4 py-2 rounded-lg text-sm font-medium text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
                 >

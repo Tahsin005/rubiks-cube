@@ -1,4 +1,13 @@
 import { formatTime } from "../utils/stats";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const ROW_DEFS = [
   { label: "Single PB", current: "pb", best: "pb" },
@@ -13,44 +22,48 @@ const ROW_DEFS = [
 export default function StatsPanel({ stats, solves }) {
   if (!stats || solves.length === 0) {
     return (
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+      <Card className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 shadow-lg">
         <p className="text-zinc-500 text-sm text-center py-8">No solves yet.<br />Complete a solve to see stats.</p>
-      </div>
+      </Card>
     );
   }
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
-      <div className="px-4 py-3 border-b border-zinc-800">
-        <p className="text-xs text-zinc-500 uppercase tracking-widest">Statistics · {stats.count} solves</p>
-      </div>
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-xs text-zinc-600 uppercase tracking-wider">
-            <th className="text-left px-4 py-2">Avg</th>
-            <th className="text-right px-4 py-2">Current</th>
-            <th className="text-right px-4 py-2">Best</th>
-          </tr>
-        </thead>
-        <tbody>
-          {ROW_DEFS.map(({ label, current, best }) => {
-            const cur = stats[current];
-            const bst = best ? stats[best] : null;
-            const isCurrentBest = cur != null && bst != null && Math.abs(cur - bst) < 1;
-            return (
-              <tr key={label} className="border-t border-zinc-800/50 hover:bg-zinc-800/30 transition-colors">
-                <td className="px-4 py-2.5 text-zinc-400 font-medium">{label}</td>
-                <td className={`px-4 py-2.5 text-right font-mono ${isCurrentBest ? "text-yellow-400" : "text-zinc-100"}`}>
-                  {formatTime(cur)}
-                </td>
-                <td className="px-4 py-2.5 text-right font-mono text-green-400">
-                  {best ? formatTime(bst) : "—"}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+    <Card className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden shadow-lg w-full">
+      <CardHeader className="px-4 py-3 border-b border-zinc-800 space-y-0">
+        <CardTitle className="text-xs text-zinc-500 uppercase tracking-widest">
+          Statistics · {stats.count} solves
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">
+        <Table className="w-full text-sm">
+          <TableHeader>
+            <TableRow className="border-zinc-800/50 hover:bg-transparent">
+              <TableHead className="text-xs text-zinc-600 uppercase tracking-wider text-left px-4 h-10">Avg</TableHead>
+              <TableHead className="text-xs text-zinc-600 uppercase tracking-wider text-right px-4 h-10">Current</TableHead>
+              <TableHead className="text-xs text-zinc-600 uppercase tracking-wider text-right px-4 h-10">Best</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody className="border-t-0">
+            {ROW_DEFS.map(({ label, current, best }) => {
+              const cur = stats[current];
+              const bst = best ? stats[best] : null;
+              const isCurrentBest = cur != null && bst != null && Math.abs(cur - bst) < 1;
+              return (
+                <TableRow key={label} className="border-zinc-800/50 hover:bg-zinc-800/30 transition-colors">
+                  <TableCell className="px-4 py-2.5 text-zinc-400 font-medium">{label}</TableCell>
+                  <TableCell className={`px-4 py-2.5 text-right font-mono ${isCurrentBest ? "text-yellow-400" : "text-zinc-100"}`}>
+                    {formatTime(cur)}
+                  </TableCell>
+                  <TableCell className="px-4 py-2.5 text-right font-mono text-green-400">
+                    {best ? formatTime(bst) : "—"}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   );
 }

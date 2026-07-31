@@ -5,6 +5,9 @@ import { getSolves, saveSolve, deleteSolve, clearSolves } from "../utils/storage
 import { computeStats, formatTime } from "../utils/stats";
 import StatsPanel from "./StatsPanel";
 import SolveList from "./SolveList";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 
 const HOLD_DURATION = 1500; // ms to hold spacebar
 
@@ -258,15 +261,17 @@ export default function Timer() {
     <div className="w-full max-w-5xl mx-auto flex flex-col gap-4">
 
       {/* Scramble bar */}
-      <div className="flex items-center justify-between gap-3 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3">
-        <p className="font-mono text-sm text-zinc-100 leading-relaxed flex-1 break-words">{scramble || "Generating..."}</p>
-        <button
+      <Card className="flex items-center justify-between gap-3 bg-zinc-900 border border-zinc-800 rounded-xl p-3 shadow-md">
+        <p className="font-mono text-sm text-zinc-100 leading-relaxed flex-1 break-words px-2">{scramble || "Generating..."}</p>
+        <Button
+          variant="outline"
+          size="sm"
           onClick={handleNextScramble}
-          className="shrink-0 px-3 py-1.5 rounded-lg bg-zinc-800 border border-zinc-700 text-zinc-300 text-xs hover:bg-zinc-700 hover:text-white transition-all"
+          className="shrink-0 bg-zinc-800 border-zinc-700 text-zinc-300 text-xs hover:bg-zinc-700 hover:text-white transition-all h-8"
         >
           Next →
-        </button>
-      </div>
+        </Button>
+      </Card>
 
       <div className="flex flex-col lg:flex-row gap-4 items-start w-full">
 
@@ -284,7 +289,8 @@ export default function Timer() {
           />
 
           {/* Timer display */}
-          <div className="w-full flex flex-col items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-2xl px-6 py-8">
+          <Card className="w-full flex flex-col items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-lg">
+            <CardContent className="w-full flex flex-col items-center gap-3 p-6 sm:p-8">
 
             {/* Hold progress bar */}
             {(timerState === STATE.HOLDING || timerState === STATE.READY) && (
@@ -320,7 +326,9 @@ export default function Timer() {
 
             {/* Quick stats row */}
             {stats && (
-              <div className="flex gap-4 mt-4 pt-4 border-t border-zinc-800 w-full justify-center flex-wrap">
+              <div className="w-full flex flex-col items-center mt-4 pt-2">
+                <Separator className="bg-zinc-800 w-full mb-4" />
+                <div className="flex gap-4 w-full justify-center flex-wrap">
                 {[
                   ["PB", formatTime(stats.pb)],
                   ["Ao5", formatTime(stats.ao5)],
@@ -332,9 +340,11 @@ export default function Timer() {
                     <span className="font-mono text-sm text-zinc-100">{val}</span>
                   </div>
                 ))}
+                </div>
               </div>
             )}
-          </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Right: stats / solves panel */}

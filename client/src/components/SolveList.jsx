@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { formatTime } from "../utils/stats";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
 
 export default function SolveList({ solves, onDelete, onClear }) {
   const [expanded, setExpanded] = useState(null);
@@ -8,23 +11,26 @@ export default function SolveList({ solves, onDelete, onClear }) {
   const reversed = [...solves].reverse();
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden flex flex-col">
-      <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between">
-        <p className="text-xs text-zinc-500 uppercase tracking-widest">Solves</p>
+    <Card className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden flex flex-col w-full shadow-lg">
+      <CardHeader className="px-4 py-3 border-b border-zinc-800 flex flex-row items-center justify-between space-y-0">
+        <CardTitle className="text-xs text-zinc-500 uppercase tracking-widest">Solves</CardTitle>
         {solves.length > 0 && (
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setShowConfirm(true)}
-            className="text-xs text-red-500 hover:text-red-400 transition"
+            className="text-xs text-red-500 hover:text-red-400 hover:bg-red-500/10 transition h-auto py-1 px-2"
           >
             Clear all
-          </button>
+          </Button>
         )}
-      </div>
+      </CardHeader>
 
-      {solves.length === 0 ? (
-        <p className="text-zinc-500 text-sm text-center py-8">No solves yet.</p>
-      ) : (
-        <div className="overflow-y-auto max-h-[480px]">
+      <CardContent className="p-0">
+        {solves.length === 0 ? (
+          <p className="text-zinc-500 text-sm text-center py-8">No solves yet.</p>
+        ) : (
+          <ScrollArea className="h-[480px] w-full">
           {reversed.map((solve, i) => {
             const num = solves.length - i;
             const isOpen = expanded === solve.id;
@@ -71,36 +77,40 @@ export default function SolveList({ solves, onDelete, onClear }) {
               </div>
             );
           })}
-        </div>
-      )}
+          </ScrollArea>
+        )}
+      </CardContent>
 
       {showConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 max-w-sm w-full shadow-2xl">
-            <h3 className="text-lg font-semibold text-zinc-100 mb-2">Clear all solves?</h3>
-            <p className="text-zinc-400 text-sm mb-6">
-              This action cannot be undone. All your solves and statistics will be permanently deleted.
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
+          <Card className="bg-zinc-900 border border-zinc-800 rounded-xl max-w-sm w-full shadow-2xl">
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold text-zinc-100">Clear all solves?</CardTitle>
+              <CardDescription className="text-zinc-400 text-sm">
+                This action cannot be undone. All your solves and statistics will be permanently deleted.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex justify-end gap-3 pb-6">
+              <Button
+                variant="ghost"
                 onClick={() => setShowConfirm(false)}
-                className="px-4 py-2 rounded-lg text-sm font-medium text-zinc-300 hover:bg-zinc-800 transition-colors"
+                className="text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => {
                   onClear();
                   setShowConfirm(false);
                 }}
-                className="px-4 py-2 rounded-lg text-sm font-medium bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-colors"
+                className="bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white transition-colors"
               >
                 Clear All
-              </button>
-            </div>
-          </div>
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

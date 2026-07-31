@@ -12,17 +12,39 @@ import { RequireAuth, PublicRoute } from './components/AuthWrappers.jsx'
 
 import Timer from './components/Timer.jsx'
 import RubiksCube from './components/RubiksCube.jsx'
-import Ranking from './components/Ranking.jsx'
+import Ranking from './pages/Ranking.jsx'
+import Profile from './pages/Profile'
 
 const router = createBrowserRouter([
   {
     path: '/',
     element: <App />,
     children: [
-      { index: true, element: <Timer /> },
-      { path: 'playground', element: <RubiksCube /> },
-      { path: 'rankings', element: <Ranking /> },
-      { path: 'multiplayer', element: <div className="text-zinc-400 mt-20 text-center w-full">Multiplayer (Coming Soon)</div> },
+      { 
+        index: true, 
+        element: <Timer /> 
+      },
+      { 
+        path: 'playground', 
+        element: <RubiksCube /> 
+      },
+      { 
+        path: 'rankings', 
+        element: <Ranking /> 
+      },
+      { 
+        element: <RequireAuth />,
+        children: [
+          {
+            path: 'user/:username', 
+            element: <Profile /> 
+          },
+        ]
+      },
+      { 
+        path: 'multiplayer', 
+        element: <div className="text-zinc-400 mt-20 text-center w-full">Multiplayer (Coming Soon)</div> 
+      },
     ]
   },
   {

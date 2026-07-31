@@ -2,7 +2,16 @@ import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
 export const usersApi = createApi({
     reducerPath: 'usersApi',
-    baseQuery: fetchBaseQuery({ baseUrl: `${import.meta.env.VITE_API_URL}` }),
+    baseQuery: fetchBaseQuery({ 
+        baseUrl: `${import.meta.env.VITE_API_URL}`,
+        prepareHeaders: (headers, { getState }) => {
+            const token = getState().auth.token;
+            if (token) {
+                headers.set('authorization', `Bearer ${token}`);
+            }
+            return headers;
+        },
+    }),
     endpoints: (builder) => ({
         getRankings: builder.query({
             query: ({ page = 1, limit = 10, search, minElo, minWinRate, maxPb }) => {
@@ -14,7 +23,10 @@ export const usersApi = createApi({
                 return `/rankings?${params.toString()}`;
             },
         }),
+        getProfile: builder.query({
+            query: (username) => `/users/${username}`,
+        }),
     }),
 });
 
-export const { useGetRankingsQuery } = usersApi;
+export const { useGetRankingsQuery, useGetProfileQuery } = usersApi;

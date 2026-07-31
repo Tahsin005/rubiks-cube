@@ -3,6 +3,16 @@ import { useGetRankingsQuery } from "../redux/api/usersApi";
 import { Search, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Link } from "react-router";
+import { useAuth } from "../hooks/useAuth";
 
 function formatTime(ms) {
   if (!ms || ms === 0) return "-";
@@ -10,6 +20,7 @@ function formatTime(ms) {
 }
 
 export default function Ranking() {
+  const { isAuthenticated } = useAuth();
   const [page, setPage] = useState(1);
   const limit = 10;
   const [search, setSearch] = useState("");
@@ -133,59 +144,67 @@ export default function Ranking() {
       {/* Rankings Table */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-zinc-900/50 border-b border-zinc-800 text-zinc-400 uppercase text-xs">
-              <tr>
-                <th className="px-6 py-4 font-medium">SL</th>
-                <th className="px-6 py-4 font-medium">Name</th>
-                <th className="px-6 py-4 font-medium">ELO</th>
-                <th className="px-6 py-4 font-medium">Mp</th>
-                <th className="px-6 py-4 font-medium">Wp</th>
-                <th className="px-6 py-4 font-medium">PB</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-800/50">
+          <Table className="w-full text-left text-sm whitespace-nowrap">
+            <TableHeader className="bg-zinc-900/50 border-b border-zinc-800 text-zinc-400 uppercase text-xs">
+              <TableRow className="hover:bg-transparent border-zinc-800/50">
+                <TableHead className="px-6 py-4 font-medium text-zinc-400">SL</TableHead>
+                <TableHead className="px-6 py-4 font-medium text-zinc-400">Name</TableHead>
+                <TableHead className="px-6 py-4 font-medium text-zinc-400">ELO</TableHead>
+                <TableHead className="px-6 py-4 font-medium text-zinc-400">Mp</TableHead>
+                <TableHead className="px-6 py-4 font-medium text-zinc-400">Wp</TableHead>
+                <TableHead className="px-6 py-4 font-medium text-zinc-400">PB</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-zinc-800/50">
               {isLoading || isFetching ? (
-                <tr>
-                  <td colSpan="6" className="px-6 py-8 text-center text-zinc-500">
+                <TableRow className="hover:bg-transparent border-zinc-800/50">
+                  <TableCell colSpan={6} className="px-6 py-8 text-center text-zinc-500">
                     Loading rankings...
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ) : rankings.length === 0 ? (
-                <tr>
-                  <td colSpan="6" className="px-6 py-8 text-center text-zinc-500">
+                <TableRow className="hover:bg-transparent border-zinc-800/50">
+                  <TableCell colSpan={6} className="px-6 py-8 text-center text-zinc-500">
                     No users found matching your criteria.
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ) : (
                 rankings.map((user, idx) => (
-                  <tr key={user.username} className="hover:bg-zinc-800/50 transition-colors group">
-                    <td className="px-6 py-4 text-zinc-400">
+                  <TableRow key={user.username} className="hover:bg-zinc-800/50 transition-colors group border-zinc-800/50 border-b-0">
+                    <TableCell className="px-6 py-4 text-zinc-400">
                       {(page - 1) * limit + idx + 1}.
-                    </td>
-                    <td className="px-6 py-4">
+                    </TableCell>
+                    <TableCell className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-white">{user.username}</span>
+                        <span className="font-medium text-white">
+                          {isAuthenticated ? (
+                            <Link to={`/user/${user.username}`} className="hover:underline hover:text-blue-400 transition-colors">
+                              {user.username}
+                            </Link>
+                          ) : (
+                            user.username
+                          )}
+                        </span>
                         <span className="text-zinc-500 text-xs">(@{user.username})</span>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 font-semibold text-blue-400">
+                    </TableCell>
+                    <TableCell className="px-6 py-4 font-semibold text-blue-400">
                       {user.elo}
-                    </td>
-                    <td className="px-6 py-4 text-zinc-300">
+                    </TableCell>
+                    <TableCell className="px-6 py-4 text-zinc-300">
                       {user.matchesPlayed}
-                    </td>
-                    <td className="px-6 py-4 text-zinc-300">
+                    </TableCell>
+                    <TableCell className="px-6 py-4 text-zinc-300">
                       {user.winPercentage}%
-                    </td>
-                    <td className="px-6 py-4 text-emerald-400 font-mono">
+                    </TableCell>
+                    <TableCell className="px-6 py-4 text-emerald-400 font-mono">
                       {formatTime(user.pbTime)}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))
               )}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
 
         {/* Pagination */}
