@@ -1,6 +1,7 @@
 import { friendsRepository } from "./friends.repository.js";
 import { redis } from "../../config/redis.js";
 import { successResponse } from "../../utils/response.js";
+import { sendNotification } from "../../ws/notificationManager.js";
 
 class FriendsController {
     async getFriends(req, res, next) {
@@ -36,6 +37,14 @@ class FriendsController {
             if (result.error) {
                 return res.status(result.status).json({ success: false, message: result.error });
             }
+            
+            await sendNotification(
+                result.data.addresseeId,
+                'FRIEND_REQUEST',
+                `Friend request from ${req.user.username}`,
+                result.data.id
+            );
+
             return successResponse(res, { message: "Friend request sent", data: result.data });
         } catch (err) { next(err); }
     }
@@ -47,6 +56,15 @@ class FriendsController {
             if (result.error) {
                 return res.status(result.status).json({ success: false, message: result.error });
             }
+
+            const targetId = result.data.requesterId === req.user.id ? result.data.addresseeId : result.data.requesterId;
+            await sendNotification(
+                targetId,
+                'FRIEND_ACCEPT',
+                `${req.user.username} accepted your friend request`,
+                result.data.id
+            );
+
             return successResponse(res, { message: "Friend request accepted", data: result.data });
         } catch (err) { next(err); }
     }

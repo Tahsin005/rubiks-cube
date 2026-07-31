@@ -98,9 +98,33 @@ export default function Navbar() {
                     ) : (
                       notifications.map(n => (
                         <div key={n.id} className={`px-4 py-3 border-b border-zinc-800/50 flex flex-col gap-1 ${!n.readAt ? 'bg-zinc-800/20' : ''}`}>
-                          <p className="text-sm text-zinc-300">{n.message}</p>
+                          <p className="text-sm text-zinc-300">
+                            {n.type === 'MESSAGE' || n.type === 'FRIEND_REQUEST' ? (
+                              <>
+                                {n.message.substring(0, n.message.lastIndexOf(' ')) + " "} 
+                                <Link 
+                                  to={`/user/${n.message.split(' ').pop()}`}
+                                  className="text-blue-400 hover:underline font-medium"
+                                >
+                                  {n.message.split(' ').pop()}
+                                </Link>
+                              </>
+                            ) : n.type === 'FRIEND_ACCEPT' ? (
+                              <>
+                                <Link 
+                                  to={`/user/${n.message.split(' ')[0]}`}
+                                  className="text-blue-400 hover:underline font-medium"
+                                >
+                                  {n.message.split(' ')[0]}
+                                </Link>
+                                {" " + n.message.substring(n.message.indexOf(' ') + 1)}
+                              </>
+                            ) : (
+                              n.message
+                            )}
+                          </p>
                           <span className="text-[10px] text-zinc-500">
-                            {new Date(n.createdAt).toLocaleDateString()}
+                            {new Date(n.createdAt).toLocaleString()}
                           </span>
                         </div>
                       ))
