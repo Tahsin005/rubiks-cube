@@ -44,6 +44,7 @@ class FriendsRepository {
         return rows.map(row => {
             const iAmRequester = row.requesterId === userId;
             const friend = {
+                id: iAmRequester ? row.addresseeId : row.requesterId,
                 username: iAmRequester ? row.addresseeUsername : row.requesterUsername,
                 avatarUrl: iAmRequester ? row.addresseeAvatar : row.requesterAvatar,
             };

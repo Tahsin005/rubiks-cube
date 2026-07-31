@@ -1,6 +1,7 @@
 import { usersRepository } from "./users.repository.js";
 import { successResponse } from "../../utils/response.js";
 import { cloudinary } from "../../config/cloudinary.js";
+import { redis } from "../../config/redis.js";
 
 class UsersController {
     async getProfile(req, res, next) {
@@ -14,6 +15,11 @@ class UsersController {
                 const err = new Error("User not found");
                 err.statusCode = 404;
                 throw err;
+            }
+
+            if (profile.friendship?.status === 'accepted') {
+                const isOnline = await redis.sismember("online_users", profile.id);
+                profile.isOnline = isOnline === 1;
             }
 
             return successResponse(res, {

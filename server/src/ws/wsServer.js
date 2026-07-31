@@ -1,10 +1,13 @@
 import jwt from "jsonwebtoken";
 import { WebSocketServer } from "ws";
 import { parse } from "url";
-import { addClient, removeClient } from "./wsClients.js";
+import { redis } from "../config/redis.js";
+import { addClient, removeClient, getClients, sendToUser } from "./wsClients.js";
+import { friendsRepository } from "../modules/friends/friends.repository.js";
 import { joinQueue, leaveQueue } from "./matchmakingManager.js";
 import { handleChallengeSend, handleChallengeAccept, handleChallengeDecline } from "./challengeManager.js";
 import { handleReady, handleStateUpdate, handleSolve, handleDisconnect } from "./gameManager.js";
+import { handleChatMessage, handleMarkRead } from "./messageManager.js";
 
 /**
  * Attaches a WebSocket server to the given HTTP server.
@@ -36,6 +39,24 @@ export function setupWsServer(httpServer) {
 
         ws.user = payload;
         addClient(payload.id, ws);
+        
+        // Track online status in Redis only on first connection
+        if (getClients(payload.id).size === 1) {
+            redis.sadd("online_users", payload.id).then(async () => {
+                try {
+                    const friendsList = await friendsRepository.getFriends(payload.id, { status: 'accepted', limit: 1000 });
+                    friendsList.forEach(f => {
+                        sendToUser(f.friend.id, { 
+                            type: "FRIEND_ONLINE_STATUS", 
+                            payload: { username: payload.username, isOnline: true } 
+                        });
+                    });
+                } catch (err) {
+                    console.error("[WS] Error broadcasting online status:", err);
+                }
+            }).catch(err => console.error("[WS] Redis SADD error:", err));
+        }
+        
         console.log(`[WS] Connected: user=${payload.username} (${payload.id})`);
 
         // handlers
@@ -47,6 +68,24 @@ export function setupWsServer(httpServer) {
             removeClient(payload.id, ws);
             leaveQueue(payload.id);
             handleDisconnect(payload.id);
+            
+            // remove from Redis online list only on last disconnection
+            if (getClients(payload.id).size === 0) {
+                redis.srem("online_users", payload.id).then(async () => {
+                    try {
+                        const friendsList = await friendsRepository.getFriends(payload.id, { status: 'accepted', limit: 1000 });
+                        friendsList.forEach(f => {
+                            sendToUser(f.friend.id, { 
+                                type: "FRIEND_ONLINE_STATUS", 
+                                payload: { username: payload.username, isOnline: false } 
+                            });
+                        });
+                    } catch (err) {
+                        console.error("[WS] Error broadcasting offline status:", err);
+                    }
+                }).catch(err => console.error("[WS] Redis SREM error:", err));
+            }
+            
             console.log(`[WS] Disconnected: user=${payload.username} (${payload.id})`);
         });
 
@@ -78,7 +117,7 @@ function handleMessage(ws, data) {
         case "PING":
             ws.send(JSON.stringify({ type: "PONG" }));
             break;
-        // Ranked Matchmaking
+        // ranked Matchmaking
         case "MATCH_SEARCH_START":
             joinQueue(ws.user.id);
             break;
@@ -86,7 +125,7 @@ function handleMessage(ws, data) {
             leaveQueue(ws.user.id);
             break;
         
-        // Friendly Challenges
+        // friendly Challenges
         case "CHALLENGE_SEND":
             if (payload && payload.targetUsername) {
                 handleChallengeSend(ws.user.id, payload.targetUsername);
@@ -103,7 +142,7 @@ function handleMessage(ws, data) {
             }
             break;
 
-        // In-Game
+        // in-Game
         case "MATCH_READY":
             handleReady(ws.user.id);
             break;
@@ -113,6 +152,18 @@ function handleMessage(ws, data) {
         case "MATCH_SOLVE":
             if (payload && payload.solveTimeMs) {
                 handleSolve(ws.user.id, payload.solveTimeMs);
+            }
+            break;
+
+        // chat
+        case "CHAT_MESSAGE_SEND":
+            if (payload && payload.targetUsername && payload.content) {
+                handleChatMessage(ws, ws.user.id, payload.targetUsername, payload.content, payload.clientId);
+            }
+            break;
+        case "CHAT_MESSAGE_READ":
+            if (payload && payload.targetUsername) {
+                handleMarkRead(ws, ws.user.id, payload.targetUsername);
             }
             break;
 

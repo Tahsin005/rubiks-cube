@@ -11,7 +11,7 @@ const playerToMatch = new Map(); // userId -> matchId
 export async function createMatch(matchType, playerA, playerB) {
     const scramble = generateScramble();
 
-    // Insert into DB
+    // insert into DB
     const matchRows = await db.insert(matches).values({
         scramble,
         matchType,
@@ -35,7 +35,7 @@ export async function createMatch(matchType, playerA, playerB) {
     playerToMatch.set(playerA.id, matchId);
     playerToMatch.set(playerB.id, matchId);
 
-    // Notify players
+    // notify players
     const matchFoundPayload = {
         type: "MATCH_FOUND",
         payload: {
@@ -52,7 +52,7 @@ export async function createMatch(matchType, playerA, playerB) {
 
     sendToUser(playerA.id, matchFoundPayload);
 
-    // Send inverse to player B
+    // send inverse to player B
     matchFoundPayload.payload.opponent = {
         id: playerA.id,
         username: playerA.username,
@@ -102,13 +102,13 @@ export async function handleSolve(userId, solveTimeMs) {
     const match = activeMatches.get(matchId);
     if (!match || match.status !== "in_progress") return;
 
-    match.status = "finished"; // Lock it so the other player can't trigger solve
+    match.status = "finished"; // lock it so the other player can't trigger solve
     const winnerId = userId;
     const loserId = match.playerA.id === userId ? match.playerB.id : match.playerA.id;
     const winner = match.playerA.id === userId ? match.playerA : match.playerB;
     const loser = match.playerA.id === userId ? match.playerB : match.playerA;
 
-    // Update matches table
+    // update matches table
     await db.update(matches)
         .set({ status: "finished", winnerId, finishedAt: new Date() })
         .where(eq(matches.id, matchId));
@@ -122,13 +122,13 @@ export async function handleSolve(userId, solveTimeMs) {
         newLoserElo = result.newPlayerBElo;
     }
 
-    // Insert results
+    // insert results
     await db.insert(matchResults).values([
         { matchId, userId: winnerId, solveTimeMs, eloBefore: winner.elo, eloAfter: newWinnerElo },
         { matchId, userId: loserId, penalty: "DNF", eloBefore: loser.elo, eloAfter: newLoserElo }
     ]);
 
-    // Update stats for winner
+    // update stats for winner
     if (match.type === "ranked") {
         const wStatsRows = await db.select().from(userStats).where(eq(userStats.userId, winnerId)).limit(1);
         if (wStatsRows.length > 0) {
@@ -141,7 +141,7 @@ export async function handleSolve(userId, solveTimeMs) {
             await db.insert(userStats).values({ userId: winnerId, elo: newWinnerElo, matchesPlayed: 1, matchesWon: 1 });
         }
 
-        // Update stats for loser
+        // update stats for loser
         const lStatsRows = await db.select().from(userStats).where(eq(userStats.userId, loserId)).limit(1);
         if (lStatsRows.length > 0) {
             await db.update(userStats).set({
@@ -153,12 +153,12 @@ export async function handleSolve(userId, solveTimeMs) {
         }
     }
 
-    // Cleanup
+    // cleanup
     activeMatches.delete(matchId);
     playerToMatch.delete(winnerId);
     playerToMatch.delete(loserId);
 
-    // Notify
+    // notify
     const endPayloadWinner = {
         type: "MATCH_END",
         payload: {
@@ -186,7 +186,7 @@ export async function handleDisconnect(userId) {
     const match = activeMatches.get(matchId);
     if (!match || match.status === "finished") return;
 
-    // Treat disconnect as an abort
+    // treat disconnect as an abort
     match.status = "finished";
     const opponentId = match.playerA.id === userId ? match.playerB.id : match.playerA.id;
 
@@ -194,7 +194,7 @@ export async function handleDisconnect(userId) {
         .set({ status: "aborted", finishedAt: new Date() })
         .where(eq(matches.id, matchId));
 
-    // Cleanup
+    // cleanup
     activeMatches.delete(matchId);
     playerToMatch.delete(userId);
     playerToMatch.delete(opponentId);

@@ -7,6 +7,8 @@ import rankingsRoutes from "./modules/rankings/rankings.routes.js";
 import friendsRoutes from "./modules/friends/friends.routes.js";
 import achievementsRoutes from "./modules/achievements/achievements.routes.js";
 import matchesRoutes from "./modules/matches/matches.routes.js";
+import messagesRoutes from "./modules/messages/messages.routes.js";
+import notificationsRoutes from "./modules/notifications/notifications.routes.js";
 import { notFoundHandler, globalErrorHandler } from "./middlewares/errorHandler.js";
 
 const app = express();
@@ -23,6 +25,8 @@ app.use("/rankings", rankingsRoutes);
 app.use("/friends", friendsRoutes);
 app.use("/achievements", achievementsRoutes);
 app.use("/matches", matchesRoutes);
+app.use("/messages", messagesRoutes);
+app.use("/notifications", notificationsRoutes);
 
 // error middlewares
 app.use(notFoundHandler);

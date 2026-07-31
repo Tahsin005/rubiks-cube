@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../hooks/useAuth";
-import { Menu, X, User } from "lucide-react";
+import { Menu, X, User, Bell } from "lucide-react";
+import { useGetNotificationsQuery, useMarkNotificationsReadMutation } from "../redux/api/notificationsApi";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,17 +19,29 @@ export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const location = useLocation();
 
-  const tabs = isAuthenticated 
+  const { data: notificationsData } = useGetNotificationsQuery(undefined, { skip: !isAuthenticated });
+  const [markRead] = useMarkNotificationsReadMutation();
+
+  const notifications = notificationsData?.data?.notifications || [];
+  const unreadCount = notifications.filter(n => !n.readAt).length;
+
+  const handleNotificationsOpen = (open) => {
+    if (open && unreadCount > 0) {
+      markRead();
+    }
+  };
+
+  const tabs = isAuthenticated
     ? [
-        { path: "/", label: "timer" },
-        { path: "/playground", label: "playground" },
-        { path: "/multiplayer", label: "multiplayer" },
-      ]
+      { path: "/", label: "timer" },
+      { path: "/playground", label: "playground" },
+      { path: "/multiplayer", label: "multiplayer" },
+    ]
     : [
-        { path: "/", label: "timer" },
-        { path: "/playground", label: "playground" },
-        { path: "/rankings", label: "ranking" },
-      ];
+      { path: "/", label: "timer" },
+      { path: "/playground", label: "playground" },
+      { path: "/rankings", label: "ranking" },
+    ];
 
   const activeTab = tabs.find(t => t.path === location.pathname)?.label || "timer";
 
@@ -42,9 +55,8 @@ export default function Navbar() {
               <Link
                 key={t.path}
                 to={t.path}
-                className={`relative px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize z-10 ${
-                  isActive ? "text-black" : "text-zinc-400 hover:text-white"
-                }`}
+                className={`relative px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize z-10 ${isActive ? "text-black" : "text-zinc-400 hover:text-white"
+                  }`}
               >
                 {isActive && (
                   <motion.div
@@ -59,35 +71,72 @@ export default function Navbar() {
           })}
         </div>
 
-        <div className="hidden md:flex px-2 items-center flex-shrink-0 ml-4">
+        <div className="hidden md:flex px-2 items-center flex-shrink-0 ml-4 gap-4">
           {isAuthenticated ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger className="relative h-8 w-8 rounded-full overflow-hidden hover:opacity-80 transition ml-2 focus:outline-none">
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={user?.avatarUrl} alt={user?.username} />
-                  <AvatarFallback className="bg-zinc-800 text-xs text-zinc-300 uppercase">
-                    {user?.username?.substring(0, 2) || <User size={14} />}
-                  </AvatarFallback>
-                </Avatar>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48 bg-zinc-900 border-zinc-800 text-zinc-300 rounded-xl">
-                <DropdownMenuItem className="hover:bg-zinc-800 cursor-pointer focus:text-white p-0">
-                  <Link to={`/user/${user?.username}`} className="w-full flex items-center px-3 py-2">
-                    <User className="mr-2 h-4 w-4" />
-                    <span>Profile</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator className="bg-zinc-800" />
-                <DropdownMenuItem 
-                  onClick={() => { logout(); setIsOpen(false); }}
-                  className="text-red-400 focus:text-red-400 focus:bg-red-500/10 cursor-pointer"
-                >
-                  Logout
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <>
+              <DropdownMenu onOpenChange={handleNotificationsOpen}>
+                <DropdownMenuTrigger className="relative flex items-center justify-center h-8 w-8 rounded-full hover:bg-zinc-800 transition focus:outline-none">
+                  <Bell size={18} className="text-zinc-400" />
+                  {unreadCount > 0 && (
+                    <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full border border-zinc-900"></span>
+                  )}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-80 bg-zinc-900 border-zinc-800 text-zinc-300 rounded-xl p-0 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-zinc-800 font-medium text-white flex justify-between items-center">
+                    Notifications
+                    {unreadCount > 0 && (
+                      <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">
+                        {unreadCount} new
+                      </span>
+                    )}
+                  </div>
+                  <div className="max-h-[300px] overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="px-4 py-6 text-center text-sm text-zinc-500">
+                        No notifications yet.
+                      </div>
+                    ) : (
+                      notifications.map(n => (
+                        <div key={n.id} className={`px-4 py-3 border-b border-zinc-800/50 flex flex-col gap-1 ${!n.readAt ? 'bg-zinc-800/20' : ''}`}>
+                          <p className="text-sm text-zinc-300">{n.message}</p>
+                          <span className="text-[10px] text-zinc-500">
+                            {new Date(n.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger className="relative h-8 w-8 rounded-full overflow-hidden hover:opacity-80 transition focus:outline-none">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={user?.avatarUrl} alt={user?.username} />
+                    <AvatarFallback className="bg-zinc-800 text-xs text-zinc-300 uppercase">
+                      {user?.username?.substring(0, 2) || <User size={14} />}
+                    </AvatarFallback>
+                  </Avatar>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48 bg-zinc-900 border-zinc-800 text-zinc-300 rounded-xl">
+                  <DropdownMenuItem className="hover:bg-zinc-800 cursor-pointer focus:text-white p-0">
+                    <Link to={`/user/${user?.username}`} className="w-full flex items-center px-3 py-2">
+                      <User className="mr-2 h-4 w-4" />
+                      <span>Profile</span>
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-zinc-800" />
+                  <DropdownMenuItem
+                    onClick={() => { logout(); setIsOpen(false); }}
+                    className="text-red-400 focus:text-red-400 focus:bg-red-500/10 cursor-pointer"
+                  >
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
           ) : (
-            <Link 
+            <Link
               to="/auth"
               className="text-sm font-medium text-blue-400 hover:text-blue-300 px-4 py-1"
             >
@@ -122,9 +171,8 @@ export default function Navbar() {
                   key={t.path}
                   to={t.path}
                   onClick={() => setIsOpen(false)}
-                  className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize ${
-                    isActive ? "bg-white text-black" : "text-zinc-400 hover:bg-zinc-800 hover:text-white"
-                  }`}
+                  className={`w-full text-left px-4 py-2 rounded-lg text-sm font-medium transition-colors capitalize ${isActive ? "bg-white text-black" : "text-zinc-400 hover:bg-zinc-800 hover:text-white"
+                    }`}
                 >
                   {t.label}
                 </Link>
@@ -133,14 +181,14 @@ export default function Navbar() {
             <div className="h-px bg-zinc-800 my-1" />
             {isAuthenticated ? (
               <div className="flex flex-col gap-1">
-                <Link 
+                <Link
                   to={`/user/${user?.username}`}
                   onClick={() => setIsOpen(false)}
                   className="w-full text-left px-4 py-2 rounded-lg text-sm font-medium text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
                 >
                   Profile
                 </Link>
-                <button 
+                <button
                   onClick={() => { logout(); setIsOpen(false); }}
                   className="w-full text-left px-4 py-2 rounded-lg text-sm font-medium text-red-400 hover:bg-zinc-800 hover:text-red-300 transition-colors"
                 >
@@ -148,7 +196,7 @@ export default function Navbar() {
                 </button>
               </div>
             ) : (
-              <Link 
+              <Link
                 to="/auth"
                 onClick={() => setIsOpen(false)}
                 className="w-full text-left px-4 py-2 rounded-lg text-sm font-medium text-blue-400 hover:bg-zinc-800 hover:text-blue-300 transition-colors"

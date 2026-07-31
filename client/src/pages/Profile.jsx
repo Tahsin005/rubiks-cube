@@ -15,6 +15,8 @@ import { Badge } from "@/components/ui/badge";
 import FriendsTab from "../components/FriendsTab";
 import AchievementsTab from "../components/AchievementsTab";
 import MatchesTab from "../components/MatchesTab";
+import MessagesTab from "../components/MessagesTab";
+import { useGetConversationsQuery } from "../redux/api/messagesApi";
 
 export default function Profile() {
   const { username } = useParams();
@@ -25,6 +27,9 @@ export default function Profile() {
   const [acceptRequest, { isLoading: isAccepting }] = useAcceptFriendRequestMutation();
   const [rejectRequest, { isLoading: isRejecting }] = useRejectFriendRequestMutation();
   const [removeRequest, { isLoading: isRemoving }] = useRemoveFriendMutation();
+
+  const isSelf = data?.data?.is_self;
+  const { data: convData } = useGetConversationsQuery(undefined, { skip: !data?.data });
 
   const handleFriendAction = async (action) => {
     try {
@@ -53,14 +58,23 @@ export default function Profile() {
 
   const profile = data.data;
 
-  const isSelf = profile.is_self;
   const isFriend = profile.friendship?.status === 'accepted';
 
+  let unreadMessagesCount = 0;
+  if (convData?.data?.conversations) {
+    if (isSelf) {
+      unreadMessagesCount = convData.data.conversations.reduce((acc, c) => acc + (c.unreadCount || 0), 0);
+    } else {
+      const specificConv = convData.data.conversations.find(c => c.friendUsername === profile.username);
+      unreadMessagesCount = specificConv?.unreadCount || 0;
+    }
+  }
+
   const tabs = isSelf 
-    ? ["My Matches", "Friends", "Achievements"]
+    ? ["My Matches", "Friends", "Achievements", "Messages"]
     : ["Match History", isFriend ? "Messages" : null, "Achievements"].filter(Boolean);
 
-  const currentTab = activeTab || tabs[0];
+  const currentTab = tabs.includes(activeTab) ? activeTab : tabs[0];
 
   let friendshipStatusBtn = null;
   if (!profile.is_self) {
@@ -153,12 +167,17 @@ export default function Profile() {
       <div className="flex flex-col md:flex-row justify-between items-center md:items-start gap-8 bg-zinc-900/40 border border-zinc-800/80 p-8 md:p-12 rounded-3xl relative overflow-hidden backdrop-blur-sm shadow-2xl">
         
         <div className="flex flex-col items-center md:items-start gap-5 z-10 w-full md:w-auto">
-          <Avatar className="w-32 h-32 border-4 border-zinc-800 shadow-xl bg-zinc-800">
-            <AvatarImage src={profile.avatarUrl} alt={profile.username} className="object-cover" />
-            <AvatarFallback className="text-4xl font-bold text-zinc-600 bg-zinc-900 uppercase">
-              {profile.username.substring(0, 2)}
-            </AvatarFallback>
-          </Avatar>
+          <div className="relative">
+            <Avatar className="w-32 h-32 border-4 border-zinc-800 shadow-xl bg-zinc-800">
+              <AvatarImage src={profile.avatarUrl} alt={profile.username} className="object-cover" />
+              <AvatarFallback className="text-4xl font-bold text-zinc-600 bg-zinc-900 uppercase">
+                {profile.username.substring(0, 2)}
+              </AvatarFallback>
+            </Avatar>
+            {profile.isOnline && (
+              <div className="absolute bottom-1 right-2 w-7 h-7 bg-emerald-500 border-4 border-zinc-900 rounded-full z-10 shadow-lg" title="Online"></div>
+            )}
+          </div>
           
           <div className="flex flex-col items-center md:items-start w-full">
             <div className="bg-zinc-800/60 border border-zinc-700/50 rounded-xl px-5 py-3 flex items-center gap-3 shadow-inner w-full md:w-auto justify-center">
@@ -247,7 +266,14 @@ export default function Profile() {
                     : "text-zinc-400 hover:text-blue-300 hover:bg-zinc-800/60 border border-transparent"
                 }`}
               >
-                {tab}
+                <div className="relative inline-block">
+                  {tab}
+                  {tab === "Messages" && unreadMessagesCount > 0 && (
+                    <span className="absolute -top-2 -right-3 sm:-right-4 h-4 w-4 sm:h-5 sm:w-5 bg-blue-600 text-white rounded-full flex items-center justify-center text-[9px] sm:text-[10px] font-bold shadow-md">
+                      {unreadMessagesCount}
+                    </span>
+                  )}
+                </div>
               </button>
             );
           })}
@@ -263,6 +289,8 @@ export default function Profile() {
             <AchievementsTab username={profile.username} />
           ) : currentTab === "My Matches" || currentTab === "Match History" ? (
             <MatchesTab isSelf={isSelf} profileUsername={profile.username} />
+          ) : currentTab === "Messages" ? (
+            <MessagesTab isSelf={isSelf} profileUsername={profile.username} />
           ) : (
             <p className="text-zinc-500 text-lg font-medium">{currentTab} content coming soon...</p>
           )}

@@ -12,6 +12,7 @@ export const usersApi = createApi({
             return headers;
         },
     }),
+    tagTypes: ['User'],
     endpoints: (builder) => ({
         getRankings: builder.query({
             query: ({ page = 1, limit = 10, search, minElo, minWinRate, maxPb }) => {
@@ -25,6 +26,7 @@ export const usersApi = createApi({
         }),
         getProfile: builder.query({
             query: (username) => `/users/${username}`,
+            providesTags: ['User'],
         }),
         getAchievements: builder.query({
             query: ({ username, page = 1, limit = 10, category } = {}) => {

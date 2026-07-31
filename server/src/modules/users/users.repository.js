@@ -59,6 +59,7 @@ class UsersRepository {
         }
 
         return {
+            id: targetUser.id,
             username: targetUser.username,
             avatarUrl: targetUser.avatarUrl,
             countryCode: targetUser.countryCode,

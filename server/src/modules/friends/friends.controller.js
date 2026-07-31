@@ -1,4 +1,5 @@
 import { friendsRepository } from "./friends.repository.js";
+import { redis } from "../../config/redis.js";
 import { successResponse } from "../../utils/response.js";
 
 class FriendsController {
@@ -7,6 +8,14 @@ class FriendsController {
             const { page, limit, status } = req.query;
 
             const friends = await friendsRepository.getFriends(req.user.id, { page, limit, status });
+
+            // Fetch online status from Redis
+            const onlineUsersArray = await redis.smembers("online_users");
+            const onlineUsersSet = new Set(onlineUsersArray);
+
+            friends.forEach(f => {
+                f.friend.isOnline = onlineUsersSet.has(f.friend.id);
+            });
 
             return successResponse(res, {
                 message: "Friends retrieved successfully",

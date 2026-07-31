@@ -12,6 +12,7 @@ export const friendsApi = createApi({
             return headers;
         },
     }),
+    tagTypes: ['Friends'],
     endpoints: (builder) => ({
         getFriends: builder.query({
             query: ({ status, search, page = 1, limit = 10 } = {}) => {
@@ -20,6 +21,7 @@ export const friendsApi = createApi({
                 if (search) params.append('search', search);
                 return `/friends?${params.toString()}`;
             },
+            providesTags: ['Friends'],
         }),
         sendFriendRequest: builder.mutation({
             query: (username) => ({

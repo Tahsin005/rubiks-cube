@@ -152,12 +152,17 @@ export default function FriendsTab() {
                     >
                       <TableCell className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8 shrink-0">
-                            <AvatarImage src={entry.friend.avatarUrl} alt={entry.friend.username} />
-                            <AvatarFallback className="bg-zinc-800 text-xs text-zinc-400 uppercase">
-                              {entry.friend.username.substring(0, 2)}
-                            </AvatarFallback>
-                          </Avatar>
+                          <div className="relative">
+                            <Avatar className="h-8 w-8 shrink-0">
+                              <AvatarImage src={entry.friend.avatarUrl} alt={entry.friend.username} />
+                              <AvatarFallback className="bg-zinc-800 text-xs text-zinc-400 uppercase">
+                                {entry.friend.username.substring(0, 2)}
+                              </AvatarFallback>
+                            </Avatar>
+                            {entry.friend.isOnline && (
+                              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-[#121212] rounded-full z-10" title="Online"></div>
+                            )}
+                          </div>
                           <span className="text-zinc-100 font-medium truncate">
                             @{entry.friend.username}
                           </span>

@@ -11,7 +11,6 @@ export async function handleChallengeSend(senderId, targetUsername) {
     const receiverId = targetRows[0].id;
     if (senderId === receiverId) return;
 
-    // Create challenge in DB
     const insertRows = await db.insert(matchChallenges).values({
         senderId,
         receiverId,
@@ -20,10 +19,10 @@ export async function handleChallengeSend(senderId, targetUsername) {
 
     const challenge = insertRows[0];
 
-    // Get sender info
+    // get sender info
     const senderRows = await db.select({ id: users.id, username: users.username }).from(users).where(eq(users.id, senderId)).limit(1);
 
-    // Notify receiver
+    // notify receiver
     sendToUser(receiverId, {
         type: "CHALLENGE_RECEIVED",
         payload: {
@@ -44,10 +43,10 @@ export async function handleChallengeAccept(receiverId, challengeId) {
 
     if (challenge.receiverId !== receiverId || challenge.status !== "pending") return;
 
-    // Accept it
+    // accept it
     await db.update(matchChallenges).set({ status: "accepted" }).where(eq(matchChallenges.id, challengeId));
 
-    // Get both players
+    // get both players
     const [playerA, playerB] = await Promise.all([
         fetchUserDetails(challenge.senderId),
         fetchUserDetails(challenge.receiverId)
@@ -55,7 +54,7 @@ export async function handleChallengeAccept(receiverId, challengeId) {
 
     if (!playerA || !playerB) return;
 
-    // Start match
+    // start match
     await createMatch("friendly", playerA, playerB);
 }
 
@@ -66,10 +65,10 @@ export async function handleChallengeDecline(receiverId, challengeId) {
 
     if (challenge.receiverId !== receiverId || challenge.status !== "pending") return;
 
-    // Decline it
+    // decline it
     await db.update(matchChallenges).set({ status: "declined" }).where(eq(matchChallenges.id, challengeId));
 
-    // Notify sender
+    // notify sender
     sendToUser(challenge.senderId, {
         type: "CHALLENGE_DECLINED",
         payload: {

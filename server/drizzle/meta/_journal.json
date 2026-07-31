@@ -15,6 +15,13 @@
       "when": 1781788614686,
       "tag": "0001_damp_naoko",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785528281660,
+      "tag": "0002_nifty_kid_colt",
+      "breakpoints": true
     }
   ]
 }

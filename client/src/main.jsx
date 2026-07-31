@@ -5,6 +5,7 @@ import { createBrowserRouter } from 'react-router'
 import { RouterProvider } from 'react-router/dom'
 import { store } from './redux/store'
 import { Toaster } from 'react-hot-toast'
+import { WebSocketProvider } from './providers/WebSocketProvider.jsx'
 import './index.css'
 import App from './App.jsx'
 import AuthPage from './pages/Auth.jsx'
@@ -61,8 +62,10 @@ const router = createBrowserRouter([
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <Provider store={store}>
-      <RouterProvider router={router} />
-      <Toaster position="top-right" toastOptions={{ className: 'bg-zinc-900 text-white border border-zinc-800' }} />
+      <WebSocketProvider>
+        <RouterProvider router={router} />
+        <Toaster position="top-right" toastOptions={{ className: 'bg-zinc-900 text-white border border-zinc-800' }} />
+      </WebSocketProvider>
     </Provider>
   </StrictMode>,
 )
