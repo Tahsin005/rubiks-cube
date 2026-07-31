@@ -74,7 +74,11 @@ class UsersRepository {
                 loss: loss,
                 winPercentage: winPercentage
             },
-            friendship: friendship
+            friendship: friendship ? {
+                status: friendship.status,
+                // 'sender' if the logged-in user sent the request, 'receiver' if they received it
+                viewerRole: friendship.requesterId === requesterId ? 'sender' : 'receiver',
+            } : null
         };
     }
 

@@ -62,19 +62,17 @@ export default function Navbar() {
         <div className="hidden md:flex px-2 items-center flex-shrink-0 ml-4">
           {isAuthenticated ? (
             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-8 w-8 rounded-full overflow-hidden hover:opacity-80 transition ml-2">
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={user?.avatarUrl} alt={user?.username} />
-                    <AvatarFallback className="bg-zinc-800 text-xs text-zinc-300 uppercase">
-                      {user?.username?.substring(0, 2) || <User size={14} />}
-                    </AvatarFallback>
-                  </Avatar>
-                </Button>
+              <DropdownMenuTrigger className="relative h-8 w-8 rounded-full overflow-hidden hover:opacity-80 transition ml-2 focus:outline-none">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={user?.avatarUrl} alt={user?.username} />
+                  <AvatarFallback className="bg-zinc-800 text-xs text-zinc-300 uppercase">
+                    {user?.username?.substring(0, 2) || <User size={14} />}
+                  </AvatarFallback>
+                </Avatar>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48 bg-zinc-900 border-zinc-800 text-zinc-300 rounded-xl">
-                <DropdownMenuItem asChild className="hover:bg-zinc-800 cursor-pointer focus:text-white">
-                  <Link to={`/user/${user?.username}`} className="w-full flex items-center">
+                <DropdownMenuItem className="hover:bg-zinc-800 cursor-pointer focus:text-white p-0">
+                  <Link to={`/user/${user?.username}`} className="w-full flex items-center px-3 py-2">
                     <User className="mr-2 h-4 w-4" />
                     <span>Profile</span>
                   </Link>

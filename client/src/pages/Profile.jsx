@@ -1,14 +1,37 @@
+import { useState } from "react";
 import { useParams, Link } from "react-router";
 import { useGetProfileQuery } from "../redux/api/usersApi";
-import { Loader2, ArrowLeft, UserPlus, UserMinus, UserCheck, Clock } from "lucide-react";
+import {
+  useSendFriendRequestMutation,
+  useAcceptFriendRequestMutation,
+  useRejectFriendRequestMutation,
+  useRemoveFriendMutation,
+} from "../redux/api/friendsApi";
+import { Loader2, ArrowLeft, UserPlus, UserX, UserCheck, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import FriendsTab from "../components/FriendsTab";
 
 export default function Profile() {
   const { username } = useParams();
-  const { data, isLoading, error } = useGetProfileQuery(username);
+  const { data, isLoading, error, refetch } = useGetProfileQuery(username);
+  const [activeTab, setActiveTab] = useState(null);
+
+  const [sendRequest, { isLoading: isSending }] = useSendFriendRequestMutation();
+  const [acceptRequest, { isLoading: isAccepting }] = useAcceptFriendRequestMutation();
+  const [rejectRequest, { isLoading: isRejecting }] = useRejectFriendRequestMutation();
+  const [removeRequest, { isLoading: isRemoving }] = useRemoveFriendMutation();
+
+  const handleFriendAction = async (action) => {
+    try {
+      await action(username).unwrap();
+      refetch();
+    } catch (e) {
+      // error handled silently; toast can be added later
+    }
+  };
 
   if (isLoading) {
     return (
@@ -28,28 +51,91 @@ export default function Profile() {
 
   const profile = data.data;
 
+  const isSelf = profile.is_self;
+  const isFriend = profile.friendship?.status === 'accepted';
+
+  const tabs = isSelf 
+    ? ["My Matches", "Friends", "Achievements"]
+    : ["Match History", isFriend ? "Messages" : null, "Achievements"].filter(Boolean);
+
+  const currentTab = activeTab || tabs[0];
+
   let friendshipStatusBtn = null;
   if (!profile.is_self) {
     const status = profile.friendship?.status;
+    const viewerRole = profile.friendship?.viewerRole; // 'sender' | 'receiver'
+
     if (!status) {
+      // No relationship — allow sending a request
       friendshipStatusBtn = (
-        <Button variant="outline" className="bg-emerald-900/20 text-emerald-400 border-emerald-800/50 hover:bg-emerald-900/40 hover:text-emerald-300 mt-4 rounded-xl">
+        <Button
+          onClick={() => handleFriendAction(sendRequest)}
+          disabled={isSending}
+          variant="outline"
+          className="bg-emerald-900/20 text-emerald-400 border-emerald-800/50 hover:bg-emerald-900/40 hover:text-emerald-300 mt-4 rounded-xl"
+        >
           <UserPlus size={16} className="mr-2" />
-          Add Friend
+          {isSending ? "Sending..." : "Add Friend"}
         </Button>
       );
-    } else if (status === 'pending') {
-       friendshipStatusBtn = (
-        <Button variant="outline" className="bg-amber-900/20 text-amber-400 border-amber-800/50 hover:bg-amber-900/40 hover:text-amber-300 mt-4 rounded-xl">
-          <Clock size={16} className="mr-2" />
-          Pending
-        </Button>
+    } else if (status === 'pending' && viewerRole === 'sender') {
+      // Current user sent the request — allow cancelling
+      friendshipStatusBtn = (
+        <div className="flex gap-2 mt-4">
+          <Button
+            variant="outline"
+            disabled
+            className="bg-amber-900/20 text-amber-400 border-amber-800/50 rounded-xl"
+          >
+            <Clock size={16} className="mr-2" />
+            Pending
+          </Button>
+          <Button
+            onClick={() => handleFriendAction(removeRequest)}
+            disabled={isRemoving}
+            variant="outline"
+            className="bg-red-900/20 text-red-400 border-red-800/50 hover:bg-red-900/40 hover:text-red-300 rounded-xl"
+          >
+            <UserX size={16} className="mr-2" />
+            {isRemoving ? "Cancelling..." : "Cancel"}
+          </Button>
+        </div>
+      );
+    } else if (status === 'pending' && viewerRole === 'receiver') {
+      // Current user received a request — allow accepting or rejecting
+      friendshipStatusBtn = (
+        <div className="flex gap-2 mt-4">
+          <Button
+            onClick={() => handleFriendAction(acceptRequest)}
+            disabled={isAccepting}
+            variant="outline"
+            className="bg-emerald-900/20 text-emerald-400 border-emerald-800/50 hover:bg-emerald-900/40 hover:text-emerald-300 rounded-xl"
+          >
+            <UserCheck size={16} className="mr-2" />
+            {isAccepting ? "Accepting..." : "Accept"}
+          </Button>
+          <Button
+            onClick={() => handleFriendAction(rejectRequest)}
+            disabled={isRejecting}
+            variant="outline"
+            className="bg-red-900/20 text-red-400 border-red-800/50 hover:bg-red-900/40 hover:text-red-300 rounded-xl"
+          >
+            <UserX size={16} className="mr-2" />
+            {isRejecting ? "Rejecting..." : "Reject"}
+          </Button>
+        </div>
       );
     } else if (status === 'accepted') {
-       friendshipStatusBtn = (
-        <Button variant="outline" className="bg-blue-900/20 text-blue-400 border-blue-800/50 hover:bg-blue-900/40 hover:text-blue-300 mt-4 rounded-xl">
+      // Already friends — allow removing
+      friendshipStatusBtn = (
+        <Button
+          onClick={() => handleFriendAction(removeRequest)}
+          disabled={isRemoving}
+          variant="outline"
+          className="bg-blue-900/20 text-blue-400 border-blue-800/50 hover:bg-red-900/20 hover:text-red-400 hover:border-red-800/50 mt-4 rounded-xl transition-colors"
+        >
           <UserCheck size={16} className="mr-2" />
-          Friends
+          {isRemoving ? "Removing..." : "Friends"}
         </Button>
       );
     }
@@ -142,6 +228,39 @@ export default function Profile() {
         <StatCard title="Won" value={profile.stats.win} />
         <StatCard title="Lost" value={profile.stats.loss} />
         <StatCard title="Wp" value={`${profile.stats.winPercentage}%`} highlight />
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="mt-12 flex flex-col items-center mb-12">
+        <div className="flex flex-wrap gap-2 p-2 rounded-2xl border-2 border-blue-500/40 bg-blue-950/20 w-full max-w-2xl justify-center shadow-inner backdrop-blur-md">
+          {tabs.map((tab) => {
+            const isActive = currentTab === tab;
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 sm:px-6 py-2.5 rounded-xl font-semibold transition-all duration-300 text-sm md:text-base tracking-wide ${
+                  isActive
+                    ? "bg-red-950/80 text-blue-400 border border-red-900 shadow-md"
+                    : "text-zinc-400 hover:text-blue-300 hover:bg-zinc-800/60 border border-transparent"
+                }`}
+              >
+                {tab}
+              </button>
+            );
+          })}
+        </div>
+        
+        {/* Tab Content Area */}
+        <div className={`mt-6 w-full max-w-4xl bg-zinc-900/40 border border-zinc-800/80 rounded-3xl p-8 backdrop-blur-sm shadow-xl ${
+          currentTab === "Friends" ? "" : "min-h-[300px] flex flex-col items-center justify-center"
+        }`}>
+          {isSelf && currentTab === "Friends" ? (
+            <FriendsTab />
+          ) : (
+            <p className="text-zinc-500 text-lg font-medium">{currentTab} content coming soon...</p>
+          )}
+        </div>
       </div>
     </div>
   );
