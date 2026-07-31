@@ -1,16 +1,18 @@
 import { useState, useMemo } from "react";
 import { Link } from "react-router";
 import { useGetFriendsQuery } from "../redux/api/friendsApi";
-import { Loader2, Search, ChevronDown, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
+import { Loader2, Search, Filter, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const STATUS_OPTIONS = [
   { value: "", label: "All" },
@@ -30,6 +32,7 @@ function statusLabel(entry) {
 export default function FriendsTab() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [showFilter, setShowFilter] = useState(false);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 10;
 
@@ -72,96 +75,121 @@ export default function FriendsTab() {
     );
   }
 
-  const selectedLabel = STATUS_OPTIONS.find((o) => o.value === statusFilter)?.label ?? "All";
-
   return (
     <div className="w-full flex flex-col gap-4">
-      {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      {/* Toolbar — Ranking page style */}
+      <div className="flex items-center gap-4 mb-2 relative">
         {/* Search */}
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={16} />
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by username…"
-            className="pl-9 bg-zinc-900 border-zinc-700 text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-blue-500/40 rounded-xl"
+            className="pl-10 bg-zinc-900 border-zinc-800 text-white"
           />
         </div>
 
-        {/* Status filter */}
-        <DropdownMenu>
-          <DropdownMenuTrigger className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-zinc-300 text-sm hover:border-zinc-600 transition focus:outline-none min-w-[160px] justify-between">
-            <span>Status: <span className="text-white font-medium">{selectedLabel}</span></span>
-            <ChevronDown size={14} className="text-zinc-500" />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="bg-zinc-900 border-zinc-800 text-zinc-300 rounded-xl min-w-[160px]">
-            {STATUS_OPTIONS.map((opt) => (
-              <DropdownMenuItem
-                key={opt.value}
-                onClick={() => handleStatusChange(opt.value)}
-                className={`cursor-pointer rounded-lg focus:bg-zinc-800 focus:text-white ${
-                  statusFilter === opt.value ? "text-blue-400 font-semibold" : ""
-                }`}
-              >
-                {opt.label}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        {/* Filter button + popover */}
+        <div className="relative">
+          <Button
+            variant="outline"
+            className="bg-zinc-900 border-zinc-800 text-white hover:bg-zinc-800 hover:text-white"
+            onClick={() => setShowFilter(!showFilter)}
+          >
+            <Filter size={16} className="mr-2" />
+            Filter
+            {statusFilter && <span className="ml-2 w-2 h-2 rounded-full bg-blue-500" />}
+          </Button>
+
+          {showFilter && (
+            <div className="absolute top-full mt-2 right-0 w-52 bg-zinc-900 border border-zinc-800 rounded-xl p-4 shadow-2xl z-20">
+              <h3 className="text-sm font-semibold text-white mb-3">Filter by Status</h3>
+              <div className="flex flex-col gap-1.5">
+                {STATUS_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => handleStatusChange(opt.value)}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                      statusFilter === opt.value
+                        ? "bg-blue-950/60 text-blue-400 font-semibold"
+                        : "text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
-      {friends.length === 0 ? (
-        <p className="text-zinc-500 text-center py-10">No entries found.</p>
-      ) : (
-        <div className="rounded-2xl border border-zinc-800 overflow-hidden">
-          <div className="grid grid-cols-[1fr_auto_auto] gap-4 px-5 py-3 bg-zinc-900 border-b border-zinc-800">
-            <span className="text-xs text-zinc-500 uppercase tracking-widest">Name</span>
-            <span className="text-xs text-zinc-500 uppercase tracking-widest">Status</span>
-            <span className="text-xs text-zinc-500 uppercase tracking-widest">Action</span>
-          </div>
-
-          {friends.map((entry) => {
-            const sl = statusLabel(entry);
-            return (
-              <div
-                key={entry.friendshipId}
-                className="grid grid-cols-[1fr_auto_auto] gap-4 items-center px-5 py-3.5 border-b border-zinc-800/60 last:border-none hover:bg-zinc-800/30 transition-colors"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <Avatar className="h-8 w-8 shrink-0">
-                    <AvatarImage src={entry.friend.avatarUrl} alt={entry.friend.username} />
-                    <AvatarFallback className="bg-zinc-800 text-xs text-zinc-400 uppercase">
-                      {entry.friend.username.substring(0, 2)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="text-zinc-100 font-medium truncate">
-                    @{entry.friend.username}
-                  </span>
-                </div>
-
-                <span className={`text-sm font-medium whitespace-nowrap ${sl.cls}`}>
-                  {sl.text}
-                </span>
-
-                <Link to={`/user/${entry.friend.username}`}>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="bg-zinc-900 border-zinc-700 text-zinc-300 hover:text-white hover:border-blue-500/50 hover:bg-blue-950/20 rounded-xl transition-colors whitespace-nowrap"
-                  >
-                    <ExternalLink size={13} className="mr-1.5" />
-                    Details
-                  </Button>
-                </Link>
-              </div>
-            );
-          })}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table className="w-full text-left text-sm whitespace-nowrap">
+            <TableHeader className="bg-zinc-900/50 border-b border-zinc-800 text-zinc-400 uppercase text-xs">
+              <TableRow className="hover:bg-transparent border-zinc-800/50">
+                <TableHead className="px-6 py-4 font-medium text-zinc-400">Name</TableHead>
+                <TableHead className="px-6 py-4 font-medium text-zinc-400">Status</TableHead>
+                <TableHead className="px-6 py-4 font-medium text-zinc-400 text-right">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-zinc-800/50">
+              {friends.length === 0 ? (
+                <TableRow className="hover:bg-transparent border-zinc-800/50">
+                  <TableCell colSpan={3} className="px-6 py-8 text-center text-zinc-500">
+                    No entries found.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                friends.map((entry) => {
+                  const sl = statusLabel(entry);
+                  return (
+                    <TableRow
+                      key={entry.friendshipId}
+                      className="hover:bg-zinc-800/50 transition-colors group border-zinc-800/50 border-b-0"
+                    >
+                      <TableCell className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <Avatar className="h-8 w-8 shrink-0">
+                            <AvatarImage src={entry.friend.avatarUrl} alt={entry.friend.username} />
+                            <AvatarFallback className="bg-zinc-800 text-xs text-zinc-400 uppercase">
+                              {entry.friend.username.substring(0, 2)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-zinc-100 font-medium truncate">
+                            @{entry.friend.username}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-6 py-4">
+                        <span className={`text-sm font-medium ${sl.cls}`}>
+                          {sl.text}
+                        </span>
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-right">
+                        <Link to={`/user/${entry.friend.username}`}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="bg-zinc-900 border-zinc-700 text-zinc-300 hover:text-white hover:border-blue-500/50 hover:bg-blue-950/20 transition-colors"
+                          >
+                            <ExternalLink size={13} className="mr-1.5" />
+                            Details
+                          </Button>
+                        </Link>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
         </div>
-      )}
 
-      {(hasPrevPage || hasNextPage) && (
-        <div className="flex items-center justify-between pt-2">
+        {/* Pagination */}
+        <div className="flex items-center justify-between px-6 py-4 border-t border-zinc-800 bg-zinc-900/50">
           <span className="text-xs text-zinc-500">
             Page {page}
           </span>
@@ -169,26 +197,24 @@ export default function FriendsTab() {
             <Button
               variant="outline"
               size="sm"
+              className="bg-zinc-900 border-zinc-800 text-white hover:bg-zinc-800 disabled:opacity-50"
+              onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={!hasPrevPage || isFetching}
-              onClick={() => setPage((p) => p - 1)}
-              className="bg-zinc-900 border-zinc-700 text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-xl disabled:opacity-40"
             >
-              <ChevronLeft size={15} className="mr-1" />
-              Prev
+              <ChevronLeft size={16} />
             </Button>
             <Button
               variant="outline"
               size="sm"
+              className="bg-zinc-900 border-zinc-800 text-white hover:bg-zinc-800 disabled:opacity-50"
+              onClick={() => setPage(p => p + 1)}
               disabled={!hasNextPage || isFetching}
-              onClick={() => setPage((p) => p + 1)}
-              className="bg-zinc-900 border-zinc-700 text-zinc-300 hover:text-white hover:bg-zinc-800 rounded-xl disabled:opacity-40"
             >
-              Next
-              <ChevronRight size={15} className="ml-1" />
+              <ChevronRight size={16} />
             </Button>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

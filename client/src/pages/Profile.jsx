@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import FriendsTab from "../components/FriendsTab";
+import AchievementsTab from "../components/AchievementsTab";
 
 export default function Profile() {
   const { username } = useParams();
@@ -257,6 +258,8 @@ export default function Profile() {
         }`}>
           {isSelf && currentTab === "Friends" ? (
             <FriendsTab />
+          ) : currentTab === "Achievements" ? (
+            <AchievementsTab username={profile.username} />
           ) : (
             <p className="text-zinc-500 text-lg font-medium">{currentTab} content coming soon...</p>
           )}

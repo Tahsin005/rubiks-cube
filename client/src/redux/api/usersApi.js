@@ -26,7 +26,15 @@ export const usersApi = createApi({
         getProfile: builder.query({
             query: (username) => `/users/${username}`,
         }),
+        getAchievements: builder.query({
+            query: ({ username, page = 1, limit = 10, category } = {}) => {
+                const params = new URLSearchParams({ page, limit });
+                if (username) params.append('username', username);
+                if (category) params.append('category', category);
+                return `/achievements?${params.toString()}`;
+            },
+        }),
     }),
 });
 
-export const { useGetRankingsQuery, useGetProfileQuery } = usersApi;
+export const { useGetRankingsQuery, useGetProfileQuery, useGetAchievementsQuery } = usersApi;
