@@ -12,8 +12,8 @@ class UsersRepository {
                 userId: solves.userId,
                 pbTime: sql`min(${solves.timeMs})`.mapWith(Number).as('pb_time'),
             })
-            .from(solves)
-            .groupBy(solves.userId)
+                .from(solves)
+                .groupBy(solves.userId)
         );
 
         // build where conditions
@@ -63,8 +63,8 @@ class UsersRepository {
 
         // order by Elo descending
         query.orderBy(desc(userStats.elo), users.username)
-             .limit(limit)
-             .offset(offset);
+            .limit(limit)
+            .offset(offset);
 
         const results = await query;
 
@@ -81,10 +81,10 @@ class UsersRepository {
             matchesPlayed: userStats.matchesPlayed,
             matchesWon: userStats.matchesWon,
         })
-        .from(users)
-        .leftJoin(userStats, eq(users.id, userStats.userId))
-        .where(eq(users.username, targetUsername))
-        .limit(1);
+            .from(users)
+            .leftJoin(userStats, eq(users.id, userStats.userId))
+            .where(eq(users.username, targetUsername))
+            .limit(1);
 
         const targetUser = targetUserRows[0];
         if (!targetUser) return null;
@@ -104,8 +104,8 @@ class UsersRepository {
         const maxEloRows = await db.select({
             maxElo: sql`MAX(${matchResults.eloAfter})`.mapWith(Number),
         })
-        .from(matchResults)
-        .where(eq(matchResults.userId, targetUser.id));
+            .from(matchResults)
+            .where(eq(matchResults.userId, targetUser.id));
 
         const maxEloDb = maxEloRows[0]?.maxElo;
         const maxElo = maxEloDb !== null && maxEloDb !== undefined && maxEloDb > currentElo ? maxEloDb : currentElo;
@@ -170,14 +170,14 @@ class UsersRepository {
         }
 
         return await db.select({
-                id: achievements.id,
-                key: achievements.key,
-                name: achievements.name,
-                description: achievements.description,
-                iconUrl: achievements.iconUrl,
-                category: achievements.category,
-                earnedAt: userAchievements.earnedAt
-            })
+            id: achievements.id,
+            key: achievements.key,
+            name: achievements.name,
+            description: achievements.description,
+            iconUrl: achievements.iconUrl,
+            category: achievements.category,
+            earnedAt: userAchievements.earnedAt
+        })
             .from(userAchievements)
             .innerJoin(achievements, eq(userAchievements.achievementId, achievements.id))
             .where(and(...conditions))
@@ -206,15 +206,15 @@ class UsersRepository {
 
         const rows = await db.with(requester, addressee)
             .select({
-                friendshipId:      friendships.id,
-                status:            friendships.status,
-                createdAt:         friendships.createdAt,
-                requesterId:       friendships.requesterId,
-                addresseeId:       friendships.addresseeId,
+                friendshipId: friendships.id,
+                status: friendships.status,
+                createdAt: friendships.createdAt,
+                requesterId: friendships.requesterId,
+                addresseeId: friendships.addresseeId,
                 requesterUsername: requester.username,
-                requesterAvatar:   requester.avatarUrl,
+                requesterAvatar: requester.avatarUrl,
                 addresseeUsername: addressee.username,
-                addresseeAvatar:   addressee.avatarUrl,
+                addresseeAvatar: addressee.avatarUrl,
             })
             .from(friendships)
             .innerJoin(requester, eq(friendships.requesterId, requester.id))
@@ -227,13 +227,13 @@ class UsersRepository {
         return rows.map(row => {
             const iAmRequester = row.requesterId === userId;
             const friend = {
-                username:  iAmRequester ? row.addresseeUsername : row.requesterUsername,
-                avatarUrl: iAmRequester ? row.addresseeAvatar   : row.requesterAvatar,
+                username: iAmRequester ? row.addresseeUsername : row.requesterUsername,
+                avatarUrl: iAmRequester ? row.addresseeAvatar : row.requesterAvatar,
             };
             const entry = {
                 friendshipId: row.friendshipId,
-                status:       row.status,
-                createdAt:    row.createdAt,
+                status: row.status,
+                createdAt: row.createdAt,
                 friend,
             };
             // for non-accepted statuses, surface who initiated
@@ -298,7 +298,7 @@ class UsersRepository {
 
         if (f.status === 'accepted') return { error: "Already friends", status: 400 };
         if (f.status === 'blocked') return { error: "Cannot accept friend request", status: 403 };
-        
+
         if (f.requesterId === userId) return { error: "You cannot accept your own friend request", status: 400 };
 
         const result = await db.update(friendships)
@@ -307,6 +307,28 @@ class UsersRepository {
             .returning();
 
         return { data: result[0] };
+    }
+
+    async rejectFriendRequest(userId, targetUsername) {
+        const targetUserRows = await db.select({ id: users.id }).from(users).where(eq(users.username, targetUsername)).limit(1);
+        if (targetUserRows.length === 0) return { error: "User not found", status: 404 };
+        const targetId = targetUserRows[0].id;
+
+        const existing = await db.select().from(friendships).where(
+            or(
+                and(eq(friendships.requesterId, userId), eq(friendships.addresseeId, targetId)),
+                and(eq(friendships.requesterId, targetId), eq(friendships.addresseeId, userId))
+            )
+        ).limit(1);
+
+        if (existing.length === 0) return { error: "Friend request not found", status: 404 };
+        const f = existing[0];
+
+        if (f.status !== 'pending') return { error: "No pending friend request to reject", status: 400 };
+        if (f.addresseeId !== userId) return { error: "You cannot reject a request you sent", status: 400 };
+
+        await db.delete(friendships).where(eq(friendships.id, f.id));
+        return { data: { success: true } };
     }
 
     async removeFriend(userId, targetUsername) {
@@ -330,6 +352,73 @@ class UsersRepository {
 
         await db.delete(friendships).where(eq(friendships.id, f.id));
         return { data: { success: true } };
+    }
+
+    async getMatchHistory(userId, { page = 1, limit = 20 }) {
+        const offset = (page - 1) * limit;
+
+        const playerA = db.$with('playerA').as(db.select({ id: users.id, username: users.username }).from(users));
+        const playerB = db.$with('playerB').as(db.select({ id: users.id, username: users.username }).from(users));
+
+        const userMatches = await db.with(playerA, playerB)
+            .select({
+                matchId: matches.id,
+                matchType: matches.matchType,
+                status: matches.status,
+                winnerId: matches.winnerId,
+                startedAt: matches.startedAt,
+                playerAId: matches.playerAId,
+                playerBId: matches.playerBId,
+                playerAUsername: playerA.username,
+                playerBUsername: playerB.username,
+                eloBefore: matchResults.eloBefore,
+                eloAfter: matchResults.eloAfter,
+            })
+            .from(matches)
+            .innerJoin(playerA, eq(matches.playerAId, playerA.id))
+            .innerJoin(playerB, eq(matches.playerBId, playerB.id))
+            .leftJoin(matchResults, and(eq(matchResults.matchId, matches.id), eq(matchResults.userId, userId)))
+            .where(or(eq(matches.playerAId, userId), eq(matches.playerBId, userId)))
+            .orderBy(desc(matches.startedAt))
+            .limit(limit)
+            .offset(offset);
+
+        return userMatches.map(m => {
+            const isPlayerA = m.playerAId === userId;
+            const oppUsername = isPlayerA ? m.playerBUsername : m.playerAUsername;
+
+            let eloChange;
+            if (m.matchType === 'friendly') {
+                eloChange = '+0';
+            } else {
+                if (m.eloBefore != null && m.eloAfter != null) {
+                    const diff = m.eloAfter - m.eloBefore;
+                    eloChange = diff > 0 ? `+${diff}` : `${diff}`;
+                } else {
+                    eloChange = null;
+                }
+            }
+
+            let winner = null;
+            if (m.winnerId) {
+                if (m.winnerId === userId) winner = 'me';
+                else winner = 'them';
+            } else if (m.status === 'aborted') {
+                winner = 'none (aborted)';
+            } else if (m.status === 'finished') {
+                winner = 'draw';
+            }
+
+            return {
+                matchId: m.matchId,
+                oppositionUsername: oppUsername,
+                status: m.status,
+                matchType: m.matchType,
+                winner: winner,
+                eloChange: eloChange,
+                startedAt: m.startedAt
+            };
+        });
     }
 }
 

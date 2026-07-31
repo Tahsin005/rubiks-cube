@@ -157,6 +157,17 @@ class UsersController {
         } catch (err) { next(err); }
     }
 
+    async rejectFriendRequest(req, res, next) {
+        try {
+            const { username } = req.params;
+            const result = await usersRepository.rejectFriendRequest(req.user.id, username);
+            if (result.error) {
+                return res.status(result.status).json({ success: false, message: result.error });
+            }
+            return successResponse(res, { message: "Friend request rejected", data: null });
+        } catch (err) { next(err); }
+    }
+
     async removeFriend(req, res, next) {
         try {
             const { username } = req.params;
@@ -167,8 +178,26 @@ class UsersController {
             return successResponse(res, { message: "Friend removed / request cancelled or rejected", data: null });
         } catch (err) { next(err); }
     }
+
+    async getMatchHistory(req, res, next) {
+        try {
+            const { page, limit } = req.query;
+
+            const matches = await usersRepository.getMatchHistory(req.user.id, { page, limit });
+
+            return successResponse(res, {
+                message: "Match history retrieved successfully",
+                data: {
+                    matches,
+                    pagination: { page, limit },
+                },
+            });
+        } catch (err) {
+            next(err);
+        }
+    }
 }
 
 const usersController = new UsersController();
 
-export const { getRankings, getProfile, updateProfile, getAchievements, getFriends, sendFriendRequest, acceptFriendRequest, removeFriend } = usersController;
+export const { getRankings, getProfile, updateProfile, getAchievements, getFriends, sendFriendRequest, acceptFriendRequest, rejectFriendRequest, removeFriend, getMatchHistory } = usersController;
