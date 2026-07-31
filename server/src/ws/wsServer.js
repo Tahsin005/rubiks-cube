@@ -2,6 +2,9 @@ import jwt from "jsonwebtoken";
 import { WebSocketServer } from "ws";
 import { parse } from "url";
 import { addClient, removeClient } from "./wsClients.js";
+import { joinQueue, leaveQueue } from "./matchmakingManager.js";
+import { handleChallengeSend, handleChallengeAccept, handleChallengeDecline } from "./challengeManager.js";
+import { handleReady, handleStateUpdate, handleSolve, handleDisconnect } from "./gameManager.js";
 
 /**
  * Attaches a WebSocket server to the given HTTP server.
@@ -42,6 +45,8 @@ export function setupWsServer(httpServer) {
 
         ws.on("close", () => {
             removeClient(payload.id, ws);
+            leaveQueue(payload.id);
+            handleDisconnect(payload.id);
             console.log(`[WS] Disconnected: user=${payload.username} (${payload.id})`);
         });
 
@@ -73,6 +78,44 @@ function handleMessage(ws, data) {
         case "PING":
             ws.send(JSON.stringify({ type: "PONG" }));
             break;
+        // Ranked Matchmaking
+        case "MATCH_SEARCH_START":
+            joinQueue(ws.user.id);
+            break;
+        case "MATCH_SEARCH_CANCEL":
+            leaveQueue(ws.user.id);
+            break;
+        
+        // Friendly Challenges
+        case "CHALLENGE_SEND":
+            if (payload && payload.targetUsername) {
+                handleChallengeSend(ws.user.id, payload.targetUsername);
+            }
+            break;
+        case "CHALLENGE_ACCEPT":
+            if (payload && payload.challengeId) {
+                handleChallengeAccept(ws.user.id, payload.challengeId);
+            }
+            break;
+        case "CHALLENGE_DECLINE":
+            if (payload && payload.challengeId) {
+                handleChallengeDecline(ws.user.id, payload.challengeId);
+            }
+            break;
+
+        // In-Game
+        case "MATCH_READY":
+            handleReady(ws.user.id);
+            break;
+        case "MATCH_STATE_UPDATE":
+            handleStateUpdate(ws.user.id, payload);
+            break;
+        case "MATCH_SOLVE":
+            if (payload && payload.solveTimeMs) {
+                handleSolve(ws.user.id, payload.solveTimeMs);
+            }
+            break;
+
         default:
             ws.send(JSON.stringify({ type: "ERROR", message: `Unknown message type: ${type}` }));
     }
