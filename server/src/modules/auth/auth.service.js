@@ -36,17 +36,22 @@ class AuthService {
         return { token, user };
     }
 
-    async login({ email, password }) {
-        const user = await authRepository.findByEmail(email);
+    async login({ identifier, password }) {
+        let user = await authRepository.findByEmail(identifier);
+        
         if (!user) {
-            const err = new Error("Invalid email or password");
+            user = await authRepository.findByUsername(identifier);
+        }
+
+        if (!user) {
+            const err = new Error("Invalid email/username or password");
             err.statusCode = 401;
             throw err;
         }
 
         const isMatch = await bcrypt.compare(password, user.passwordHash);
         if (!isMatch) {
-            const err = new Error("Invalid email or password");
+            const err = new Error("Invalid email/username or password");
             err.statusCode = 401;
             throw err;
         }

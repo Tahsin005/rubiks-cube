@@ -1,4 +1,5 @@
 import express from "express";
+import cors from "cors";
 import healthRoutes from "./modules/health/health.routes.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import userRoutes from "./modules/users/users.routes.js";
@@ -7,6 +8,7 @@ import { notFoundHandler, globalErrorHandler } from "./middlewares/errorHandler.
 const app = express();
 
 // middleware
+app.use(cors());
 app.use(express.json());
 
 // routes
