@@ -14,6 +14,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import FriendsTab from "../components/FriendsTab";
 import AchievementsTab from "../components/AchievementsTab";
+import MatchesTab from "../components/MatchesTab";
 
 export default function Profile() {
   const { username } = useParams();
@@ -260,6 +261,8 @@ export default function Profile() {
             <FriendsTab />
           ) : currentTab === "Achievements" ? (
             <AchievementsTab username={profile.username} />
+          ) : currentTab === "My Matches" || currentTab === "Match History" ? (
+            <MatchesTab isSelf={isSelf} profileUsername={profile.username} />
           ) : (
             <p className="text-zinc-500 text-lg font-medium">{currentTab} content coming soon...</p>
           )}

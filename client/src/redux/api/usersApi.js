@@ -34,7 +34,19 @@ export const usersApi = createApi({
                 return `/achievements?${params.toString()}`;
             },
         }),
+        getMyMatches: builder.query({
+            query: ({ page = 1, limit = 10 } = {}) => {
+                const params = new URLSearchParams({ page, limit });
+                return `/matches?${params.toString()}`;
+            },
+        }),
+        getMatchHistory: builder.query({
+            query: ({ opponentUsername, page = 1, limit = 10 } = {}) => {
+                const params = new URLSearchParams({ page, limit });
+                return `/matches/history/${opponentUsername}?${params.toString()}`;
+            },
+        }),
     }),
 });
 
-export const { useGetRankingsQuery, useGetProfileQuery, useGetAchievementsQuery } = usersApi;
+export const { useGetRankingsQuery, useGetProfileQuery, useGetAchievementsQuery, useGetMyMatchesQuery, useGetMatchHistoryQuery } = usersApi;

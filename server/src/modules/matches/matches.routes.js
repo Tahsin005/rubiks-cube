@@ -6,6 +6,7 @@ import { authenticate } from "../../middlewares/authenticate.js";
 
 const router = Router();
 
-router.get("/", authenticate, validate(matchHistorySchema), matchesController.getMatchHistory.bind(matchesController));
+router.get("/", authenticate, validate(matchHistorySchema), matchesController.getMyMatches.bind(matchesController));
+router.get("/history/:opponentUsername", authenticate, validate(matchHistorySchema), matchesController.getMatchHistory.bind(matchesController));
 
 export default router;
