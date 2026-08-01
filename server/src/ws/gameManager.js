@@ -3,7 +3,6 @@ import { matches, matchResults, users, userStats } from "../db/index.js";
 import { eq } from "drizzle-orm";
 import { sendToUser } from "./wsClients.js";
 import { generateScramble } from "../utils/scramble.js";
-import { calculateElo } from "../utils/elo.js";
 
 const activeMatches = new Map(); // matchId -> matchState
 const playerToMatch = new Map(); // userId -> matchId
@@ -34,6 +33,11 @@ export async function createMatch(matchType, playerA, playerB) {
     activeMatches.set(matchId, matchState);
     playerToMatch.set(playerA.id, matchId);
     playerToMatch.set(playerB.id, matchId);
+
+    // Setup 15-second Ready timeout
+    matchState.readyTimeoutId = setTimeout(() => {
+        abortMatch(matchId, "Timeout waiting for players to be ready");
+    }, 15000);
 
     // notify players
     const matchFoundPayload = {
@@ -72,6 +76,7 @@ export function handleReady(userId) {
     if (match.playerB.id === userId) match.playerB.ready = true;
 
     if (match.playerA.ready && match.playerB.ready) {
+        if (match.readyTimeoutId) clearTimeout(match.readyTimeoutId);
         match.status = "in_progress";
         match.startTime = Date.now();
 
@@ -102,11 +107,80 @@ export async function handleSolve(userId, solveTimeMs) {
     const match = activeMatches.get(matchId);
     if (!match || match.status !== "in_progress") return;
 
-    match.status = "finished"; // lock it so the other player can't trigger solve
-    const winnerId = userId;
-    const loserId = match.playerA.id === userId ? match.playerB.id : match.playerA.id;
-    const winner = match.playerA.id === userId ? match.playerA : match.playerB;
-    const loser = match.playerA.id === userId ? match.playerB : match.playerA;
+    // Prevent cheating with impossibly fast solves (under 1 second)
+    if (solveTimeMs < 1000) {
+        console.warn(`[WS] Impossibly fast solve detected by user ${userId}: ${solveTimeMs}ms`);
+        return;
+    }
+
+    await processMatchResult(matchId, userId, null);
+}
+
+export async function handleForfeit(loserId, reason = "Opponent forfeited due to inactivity") {
+    const matchId = playerToMatch.get(loserId);
+    if (!matchId) return;
+
+    const match = activeMatches.get(matchId);
+    if (!match || match.status !== "in_progress") return;
+
+    const winnerId = match.playerA.id === loserId ? match.playerB.id : match.playerA.id;
+    await processMatchResult(matchId, winnerId, reason);
+}
+
+async function abortMatch(matchId, reason) {
+    const match = activeMatches.get(matchId);
+    if (!match) return;
+
+    match.status = "finished";
+    if (match.readyTimeoutId) clearTimeout(match.readyTimeoutId);
+
+    await db.update(matches)
+        .set({ status: "aborted", finishedAt: new Date() })
+        .where(eq(matches.id, matchId));
+
+    activeMatches.delete(matchId);
+    playerToMatch.delete(match.playerA.id);
+    playerToMatch.delete(match.playerB.id);
+
+    const abortPayload = {
+        type: "MATCH_END",
+        payload: {
+            aborted: true,
+            reason
+        }
+    };
+    sendToUser(match.playerA.id, abortPayload);
+    sendToUser(match.playerB.id, abortPayload);
+}
+
+export async function handleDisconnect(userId) {
+    const matchId = playerToMatch.get(userId);
+    if (!matchId) return;
+
+    const match = activeMatches.get(matchId);
+    if (!match || match.status === "finished") return;
+
+    if (match.status === "waiting_for_ready") {
+        // Safe to abort without penalty
+        await abortMatch(matchId, "Opponent disconnected before the match started.");
+    } else if (match.status === "in_progress") {
+        // Disconnect during game is a forfeit
+        await handleForfeit(userId, "Opponent disconnected mid-game.");
+    }
+}
+
+async function processMatchResult(matchId, winnerId, forfeitReason = null) {
+    const match = activeMatches.get(matchId);
+    if (!match) return;
+
+    match.status = "finished"; 
+
+    const loserId = match.playerA.id === winnerId ? match.playerB.id : match.playerA.id;
+    const winner = match.playerA.id === winnerId ? match.playerA : match.playerB;
+    const loser = match.playerA.id === winnerId ? match.playerB : match.playerA;
+
+    // determine solve time (if forfeit, it's null, otherwise we trust they solved it around now)
+    const solveTimeMs = forfeitReason ? null : Date.now() - match.startTime;
 
     // update matches table
     await db.update(matches)
@@ -117,9 +191,8 @@ export async function handleSolve(userId, solveTimeMs) {
     let newLoserElo = loser.elo;
 
     if (match.type === "ranked") {
-        const result = calculateElo(winner.elo, loser.elo, 1);
-        newWinnerElo = result.newPlayerAElo;
-        newLoserElo = result.newPlayerBElo;
+        newWinnerElo = winner.elo + 50;
+        newLoserElo = Math.max(0, loser.elo - 50); // Ensure Elo doesn't drop below 0
     }
 
     // insert results
@@ -164,7 +237,8 @@ export async function handleSolve(userId, solveTimeMs) {
         payload: {
             winnerId,
             solveTimeMs,
-            eloChange: newWinnerElo - winner.elo
+            eloChange: newWinnerElo - winner.elo,
+            forfeitReason
         }
     };
     const endPayloadLoser = {
@@ -172,38 +246,10 @@ export async function handleSolve(userId, solveTimeMs) {
         payload: {
             winnerId,
             solveTimeMs,
-            eloChange: newLoserElo - loser.elo
+            eloChange: newLoserElo - loser.elo,
+            forfeitReason
         }
     };
     sendToUser(winnerId, endPayloadWinner);
     sendToUser(loserId, endPayloadLoser);
-}
-
-export async function handleDisconnect(userId) {
-    const matchId = playerToMatch.get(userId);
-    if (!matchId) return;
-
-    const match = activeMatches.get(matchId);
-    if (!match || match.status === "finished") return;
-
-    // treat disconnect as an abort
-    match.status = "finished";
-    const opponentId = match.playerA.id === userId ? match.playerB.id : match.playerA.id;
-
-    await db.update(matches)
-        .set({ status: "aborted", finishedAt: new Date() })
-        .where(eq(matches.id, matchId));
-
-    // cleanup
-    activeMatches.delete(matchId);
-    playerToMatch.delete(userId);
-    playerToMatch.delete(opponentId);
-
-    sendToUser(opponentId, {
-        type: "MATCH_END",
-        payload: {
-            aborted: true,
-            reason: "Opponent disconnected"
-        }
-    });
 }

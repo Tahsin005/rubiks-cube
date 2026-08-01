@@ -41,7 +41,7 @@ export default function MatchesTab({ isSelf, profileUsername }) {
       {isSelf ? (
         <Button
           className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-900/20"
-          onClick={() => navigate('/play')}
+          onClick={() => navigate('/multiplayer')}
         >
           <Swords size={16} className="mr-2" />
           Multiplayer (1v1)

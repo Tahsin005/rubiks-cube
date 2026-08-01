@@ -15,6 +15,7 @@ import Timer from './components/Timer.jsx'
 import RubiksCube from './components/RubiksCube.jsx'
 import Ranking from './pages/Ranking.jsx'
 import Profile from './pages/Profile'
+import Multiplayer from './pages/Multiplayer.jsx'
 
 const router = createBrowserRouter([
   {
@@ -40,11 +41,11 @@ const router = createBrowserRouter([
             path: 'user/:username', 
             element: <Profile /> 
           },
+          {
+            path: 'multiplayer',
+            element: <Multiplayer />
+          }
         ]
-      },
-      { 
-        path: 'multiplayer', 
-        element: <div className="text-zinc-400 mt-20 text-center w-full">Multiplayer (Coming Soon)</div> 
       },
     ]
   },

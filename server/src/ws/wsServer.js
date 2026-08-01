@@ -6,7 +6,7 @@ import { addClient, removeClient, getClients, sendToUser } from "./wsClients.js"
 import { friendsRepository } from "../modules/friends/friends.repository.js";
 import { joinQueue, leaveQueue } from "./matchmakingManager.js";
 import { handleChallengeSend, handleChallengeAccept, handleChallengeDecline } from "./challengeManager.js";
-import { handleReady, handleStateUpdate, handleSolve, handleDisconnect } from "./gameManager.js";
+import { handleReady, handleStateUpdate, handleSolve, handleDisconnect, handleForfeit } from "./gameManager.js";
 import { handleChatMessage, handleMarkRead } from "./messageManager.js";
 
 /**
@@ -153,6 +153,9 @@ function handleMessage(ws, data) {
             if (payload && payload.solveTimeMs) {
                 handleSolve(ws.user.id, payload.solveTimeMs);
             }
+            break;
+        case "MATCH_FORFEIT":
+            handleForfeit(ws.user.id, payload?.reason);
             break;
 
         // chat
